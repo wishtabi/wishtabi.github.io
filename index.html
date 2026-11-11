@@ -323,9 +323,11 @@ details.orig span{font-size:13px;color:var(--muted)}
 [lang=ur]{font-family:'Noto Nastaliq Urdu','Jameel Noori Nastaleeq',var(--font);line-height:1.9}
 .mapbox{position:relative;direction:ltr;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
 .map{height:300px;background:var(--bg)}
-.mapbox .pin{position:absolute;left:50%;top:50%;width:36px;height:46px;transform:translate(-50%,-100%);z-index:500;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.35))}
+.mapbox .pin{position:absolute;left:50%;top:50%;width:24px;height:31px;transform:translate(-50%,-100%);z-index:500;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.35))}
 .loc-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .loc-row .muted{flex:1;min-width:150px}
+.seg.mini{box-shadow:none;border:1px solid var(--line);padding:3px;flex:none}
+.seg.mini button{padding:5px 10px;font-size:12.5px}
 .addr{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line)}
 .addr:last-child{border-bottom:0}
 .addr .pav{width:40px;height:40px}
@@ -688,6 +690,7 @@ TR_LANGS.forEach((l, li) => {
 const myLang = () => (db && db.me && db.me.lang) || 'ar';
 /* ---------- المواقع ---------- */
 const RIYADH = [24.7136, 46.6753];
+const mapStyle = () => lsGet('weshtabi_map') || 'sat';
 const hasLoc = x => !!(x && x.lat && x.lng);
 function kmBetween(a, b) {
   if (!hasLoc(a) || !hasLoc(b)) return null;
@@ -707,8 +710,14 @@ function initMaps() {
   document.querySelectorAll('[data-map]').forEach(el => {
     if (!window.L) { el.innerHTML = '<p class="muted sm" style="padding:24px;direction:rtl">تعذّر تحميل الخريطة. استخدم زر "موقعي الحالي".</p>'; return }
     const f = state.locForm || {}, has = hasLoc(f);
-    const m = L.map(el, { zoomControl: true }).setView(has ? [f.lat, f.lng] : RIYADH, has ? 17 : 11);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(m);
+    const m = L.map(el, { zoomControl: true, maxZoom: 20 }).setView(state.mapView ? state.mapView.c : has ? [f.lat, f.lng] : RIYADH, state.mapView ? state.mapView.z : has ? 18 : 11);
+    state.mapView = null;
+    const sat = mapStyle() === 'sat';
+    if (sat) {
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 19, maxZoom: 20, attribution: 'Imagery &copy; Esri' }).addTo(m);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 19, maxZoom: 20, opacity: .85 }).addTo(m);
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 19, maxZoom: 20 }).addTo(m);
+    } else L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxNativeZoom: 19, maxZoom: 20, attribution: '&copy; OpenStreetMap' }).addTo(m);
     m.on('dragend', () => { const c = m.getCenter(); f.lat = +c.lat.toFixed(6); f.lng = +c.lng.toFixed(6); f.acc = 0; locStatus() });
     setTimeout(() => m.invalidateSize(), 80);
     maps.push(m);
@@ -729,7 +738,9 @@ function locateMe() {
   }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
 }
 const mapPicker = () => `<div class="mapbox"><div class="map" data-map="1" aria-label="خريطة لتحديد الموقع"></div>${PIN_SVG}</div>
-  <div class="loc-row"><button type="button" class="btn ghost sm" data-act="locateMe">${icon('pin', 'sm')} موقعي الحالي</button><span id="loc-status" class="muted xs"></span></div>`;
+  <div class="loc-row"><button type="button" class="btn ghost sm" data-act="locateMe">${icon('pin', 'sm')} موقعي الحالي</button>
+    <span class="seg mini"><button type="button" class="${mapStyle() === 'sat' ? 'on' : ''}" data-act="mapStyle" data-k="sat">قمر صناعي</button><button type="button" class="${mapStyle() === 'map' ? 'on' : ''}" data-act="mapStyle" data-k="map">خريطة</button></span></div>
+  <p id="loc-status" class="muted xs"></p>`;
 function showTr(orig, tr) {
   const L = myLang();
   if (!orig) return '';
@@ -1616,6 +1627,10 @@ const ACT = {
   testSound() { unlockAudio(); setTimeout(() => chime(true), 60); try { navigator.vibrate && navigator.vibrate([150, 80, 150]) } catch (e) { } },
   askNotif() { try { Notification.requestPermission().then(p => { toast(p === 'granted' ? 'تفعّلت إشعارات المتصفح' : 'ما تفعّلت الإشعارات. تقدر تسمح بها من إعدادات المتصفح'); render() }) } catch (e) { toast('المتصفح ما يدعم الإشعارات') } },
   locateMe() { locateMe() },
+  mapStyle(d) {
+    const m = maps[0]; if (m) { const c = m.getCenter(); state.mapView = { c: [c.lat, c.lng], z: m.getZoom() } }
+    lsSet('weshtabi_map', d.k); render();
+  },
   addrLabel(d) { state.addrForm.label = d.k; render() },
   pickAddr(d) { state[d.key].addrId = d.id; render() },
   defAddr(d) { run('setDefaultAddress', { addrId: d.id }, 'صار العنوان الأساسي') },
