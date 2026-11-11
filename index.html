@@ -8,6 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
 :root{
   /* layout: one phone-width column — navy header, content cards, bottom tab bar per role */
@@ -319,6 +321,19 @@ details.orig span{font-size:13px;color:var(--muted)}
 .ar-sub{display:block;font-size:12px;color:var(--muted);font-weight:400}
 .hint{margin-top:-4px;display:flex;gap:4px;align-items:center}
 [lang=ur]{font-family:'Noto Nastaliq Urdu','Jameel Noori Nastaleeq',var(--font);line-height:1.9}
+.mapbox{position:relative;direction:ltr;border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+.map{height:300px;background:var(--bg)}
+.mapbox .pin{position:absolute;left:50%;top:50%;width:36px;height:46px;transform:translate(-50%,-100%);z-index:500;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.35))}
+.loc-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.loc-row .muted{flex:1;min-width:150px}
+.addr{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line)}
+.addr:last-child{border-bottom:0}
+.addr .pav{width:40px;height:40px}
+.addr-b{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.addr-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.tag.warn{background:var(--warn-soft);color:var(--warn)}
+.nat{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5px;direction:ltr;unicode-bidi:isolate}
+.dist{font-size:12px;color:var(--muted);white-space:nowrap}
 </style>
 </head>
 <body>
@@ -671,6 +686,50 @@ TR_LANGS.forEach((l, li) => {
 });
 
 const myLang = () => (db && db.me && db.me.lang) || 'ar';
+/* ---------- المواقع ---------- */
+const RIYADH = [24.7136, 46.6753];
+const hasLoc = x => !!(x && x.lat && x.lng);
+function kmBetween(a, b) {
+  if (!hasLoc(a) || !hasLoc(b)) return null;
+  const R = 6371, r = d => d * Math.PI / 180, dLa = r(b.lat - a.lat), dLo = r(b.lng - a.lng);
+  const h = Math.sin(dLa / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLo / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+const kmText = k => k == null ? '' : k < 1 ? `${Math.max(50, Math.round(k * 1000 / 50) * 50)} م` : `${k.toFixed(k < 10 ? 1 : 0)} كم`;
+const gmapsDir = x => `https://www.google.com/maps/dir/?api=1&destination=${x.lat},${x.lng}`;
+const myAddrs = () => (db && db.me && db.me.addresses) || [];
+const defAddr = () => (db && db.me && db.me.address) || null;
+const addrById = id => myAddrs().find(a => a.id === id) || defAddr();
+const PIN_SVG = '<svg class="pin" viewBox="0 0 36 46" aria-hidden="true"><path d="M18 45s15-15.6 15-27A15 15 0 0 0 3 18c0 11.4 15 27 15 27z" fill="#EB8420" stroke="#fff" stroke-width="2"/><circle cx="18" cy="18" r="6" fill="#fff"/></svg>';
+let maps = [];
+function initMaps() {
+  maps.forEach(m => { try { m.remove() } catch (e) { } }); maps = [];
+  document.querySelectorAll('[data-map]').forEach(el => {
+    if (!window.L) { el.innerHTML = '<p class="muted sm" style="padding:24px;direction:rtl">تعذّر تحميل الخريطة. استخدم زر "موقعي الحالي".</p>'; return }
+    const f = state.locForm || {}, has = hasLoc(f);
+    const m = L.map(el, { zoomControl: true }).setView(has ? [f.lat, f.lng] : RIYADH, has ? 17 : 11);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(m);
+    m.on('dragend', () => { const c = m.getCenter(); f.lat = +c.lat.toFixed(6); f.lng = +c.lng.toFixed(6); f.acc = 0; locStatus() });
+    setTimeout(() => m.invalidateSize(), 80);
+    maps.push(m);
+  });
+}
+function locStatus() {
+  const el = document.getElementById('loc-status'), f = state.locForm || {};
+  if (el) el.textContent = hasLoc(f) ? `✓ تم تحديد الموقع${f.acc ? ` (دقة تقريبية ±${Math.round(f.acc)} م)` : ''}. اسحب الخريطة لو تبي تعدّله.` : 'اضغط "موقعي الحالي" أو اسحب الخريطة لين يصير الدبوس على الباب.';
+}
+function locateMe() {
+  if (!navigator.geolocation) { toast('الجوال ما يدعم تحديد الموقع'); return }
+  const el = document.getElementById('loc-status'); if (el) el.textContent = 'جارٍ تحديد موقعك…';
+  navigator.geolocation.getCurrentPosition(pos => {
+    const f = state.locForm; f.lat = +pos.coords.latitude.toFixed(6); f.lng = +pos.coords.longitude.toFixed(6); f.acc = pos.coords.accuracy;
+    if (maps[0]) maps[0].setView([f.lat, f.lng], 18); locStatus();
+  }, err => {
+    toast(err.code === 1 ? 'ما سمحت بالوصول للموقع. اسمح به من إعدادات المتصفح، أو حدده بسحب الخريطة' : 'تعذّر تحديد الموقع، اسحب الخريطة لتحديده'); locStatus();
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+}
+const mapPicker = () => `<div class="mapbox"><div class="map" data-map="1" aria-label="خريطة لتحديد الموقع"></div>${PIN_SVG}</div>
+  <div class="loc-row"><button type="button" class="btn ghost sm" data-act="locateMe">${icon('pin', 'sm')} موقعي الحالي</button><span id="loc-status" class="muted xs"></span></div>`;
 function showTr(orig, tr) {
   const L = myLang();
   if (!orig) return '';
@@ -886,7 +945,8 @@ function render() {
   const top = state.stack.at(-1);
   const strip = db.settings.trial ? `<div class="strip">فترة تجريبية · بدون عمولة حتى ${esc(db.settings.trialEnds)}</div>` : '';
   app.innerHTML = header(u, top) + strip + `<main class="main" id="main">${body(u, top)}</main>` + (top ? '' : nav(u)) + cartBar(top) + sheetHtml();
-  applyFilters();
+  applyFilters(); initMaps(); locStatus();
+  if (state.autoLocate && document.querySelector('[data-map]')) { state.autoLocate = false; setTimeout(locateMe, 300) }
 }
 function header(u, top) {
   const start = top ? `<button class="iconbtn" data-act="back" aria-label="رجوع">${icon('back')}</button><div class="htitle">${esc(titleOf(top))}</div>` : `<div class="brand">${LOGO}</div>`;
@@ -975,7 +1035,13 @@ function providerCard(p) {
   const c = CAT(p.cat);
   return `<div class="pcard"><button class="pmain" data-act="open" data-v="provider" data-id="${p.id}"><span class="pav">${icon(c.icon)}</span>
     <span class="pbody"><b>${esc(p.name)}</b><span class="muted sm">${c.name}${p.hours ? ` · ${esc(p.hours)}` : ''}</span></span>
-    <span class="pmeta"><span class="star">${ratingText(p)}</span><span class="muted xs">${feeLabel(p)}</span></span></button>${favBtn(p)}</div>`;
+    <span class="pmeta"><span class="star">${ratingText(p)}</span><span class="muted xs">${feeLabel(p)}</span>${me().role === 'customer' && kmBetween(defAddr(), p.loc) != null ? `<span class="dist">${icon('pin', 'xs')} ${kmText(kmBetween(defAddr(), p.loc))}</span>` : ''}</span></button>${favBtn(p)}</div>`;
+}
+function addrChooser(key, visit) {
+  const list = myAddrs(), cur = addrById(state[key].addrId);
+  if (!cur) return '';
+  const warn = !hasLoc(cur) ? `<button type="button" class="link" data-act="sheet" data-type="addr" data-id="${cur.id}">${icon('pin', 'xs')} حدد موقع "${esc(cur.label)}" على الخريطة</button>` : '';
+  return `<div class="field-label">${visit ? 'موقع الخدمة' : 'يوصل إلى'}</div>${list.length > 1 ? `<div class="chips scroll">${list.map(a => `<button type="button" class="chip ${a.id === cur.id ? 'on' : ''}" data-act="pickAddr" data-key="${key}" data-id="${a.id}">${icon('pin', 'xs')} ${esc(a.label)}</button>`).join('')}</div>` : `<p class="sm">${icon('pin', 'xs')} ${esc(cur.label)} · حي ${esc(cur.district)}</p>`}${warn}`;
 }
 function composeForm(mode) {
   const c = state.compose, u = me(), t = mode === 'target' && c.target ? P(c.target) : null;
@@ -993,6 +1059,7 @@ function composeForm(mode) {
           <button type="button" class="${scope === 'fav' ? 'on' : ''}" data-act="scope" data-k="fav">${icon('star', 'xs')} مفضلتي (${favs.length})</button>
           <button type="button" class="${scope === 'all' ? 'on' : ''}" data-act="scope" data-k="all">كل الحي${all ? ` (${all})` : ''}</button></div>
           ${scope === 'fav' ? `<p class="muted xs">${favs.map(p => esc(p.name)).join('، ')}</p>` : ''}` : ''}`}
+    ${addrChooser('compose', t ? CAT(t.cat).visit : (c.cat && CAT(c.cat).visit))}
     <div class="row2">
       <label class="sel" for="c-when">${icon('clock', 'sm')}<select id="c-when" data-bind="compose.when" aria-label="الموعد المناسب">${WHENS.map(w => `<option ${c.when === w ? 'selected' : ''}>${w}</option>`).join('')}</select></label>
       <label class="btn ghost file" for="c-photo">${icon('camera', 'sm')} ${c.photo ? 'تغيير الصورة' : 'إرفاق صورة'}<input type="file" accept="image/*" id="c-photo" hidden></label>
@@ -1011,6 +1078,7 @@ VIEWS.home = u => {
   const active = db.orders.filter(o => o.customerId === u.id && (ACTIVE.includes(o.status) || o.status === 'delivered')).sort(byNew);
   const favs = favProviders(), provs = providersIn(d).sort((a, b) => (isFav(b.id) - isFav(a.id)) || (avg(b) - avg(a)));
   return `<section class="hello"><h1>${greet} يا ${esc(u.name)}</h1><p class="muted sm">${icon('pin', 'xs')} ${d ? `حي ${esc(d)}` : 'أكمل عنوانك من حسابي'}</p></section>
+  ${defAddr() && !hasLoc(defAddr()) ? `<section class="card"><div class="loc-row"><span class="pav">${icon('pin')}</span><span style="flex:1"><b>حدد موقع ${esc(defAddr().label)} على الخريطة</b><br><span class="muted sm">عشان يوصلك المندوب والفني بدون اتصالات.</span></span></div><button class="btn primary block" data-act="sheet" data-type="addr" data-id="${defAddr().id}">${icon('pin', 'sm')} حدد الموقع</button></section>` : ''}
   <section class="card ask"><h2 class="ask-title">وش تبي؟</h2>${composeForm('home')}</section>
   ${favs.length ? `<section><div class="sec-h"><h2>مفضلتي</h2><button class="link" data-act="tab" data-k="favs">الكل</button></div><div class="favrow">${favs.map(p => `<button class="favchip" data-act="open" data-v="provider" data-id="${p.id}"><span class="pav">${icon(CAT(p.cat).icon)}</span><span><b>${esc(p.name)}</b><small>${CAT(p.cat).name}</small></span></button>`).join('')}</div></section>` : ''}
   ${active.length ? `<section><div class="sec-h"><h2>طلباتك الجارية</h2><button class="link" data-act="tab" data-k="orders">كل طلباتي</button></div><div class="list">${active.slice(0, 3).map(orderCard).join('')}</div></section>` : ''}
@@ -1032,10 +1100,14 @@ VIEWS.account = u => `
   ${card('بياناتي', `<form data-form="profile" class="stack">
     <label class="fld" for="pf-name"><span>الاسم</span><input id="pf-name" name="name" value="${esc(u.name)}" required></label>
     <label class="fld" for="pf-phone"><span>رقم الجوال</span><input id="pf-phone" type="tel" dir="ltr" value="${esc(u.phone)}" disabled></label>
-    <label class="fld" for="pf-district"><span>الحي</span><select id="pf-district" name="district">${db.settings.districts.map(d => `<option ${u.address?.district === d ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select></label>
-    <label class="fld" for="pf-details"><span>العنوان التفصيلي</span><input id="pf-details" name="details" value="${esc(u.address?.details || '')}" placeholder="الشارع، رقم البيت أو العمارة"></label>
-    <p class="muted xs">عنوانك التفصيلي ورقمك ما يشوفها مقدم الخدمة إلا بعد ما يقبل طلبك.</p>
     <button class="btn dark block">حفظ البيانات</button></form>`)}
+  ${card('عناويني', `${myAddrs().map(a => `<div class="addr"><span class="pav">${icon('pin')}</span><div class="addr-b"><b>${esc(a.label)} ${a.id === defAddr()?.id ? '<span class="tag good">الأساسي</span>' : ''}</b>
+      <span class="muted sm">حي ${esc(a.district)}${a.details ? `، ${esc(a.details)}` : ''}</span>
+      ${a.nat ? `<span class="muted xs">العنوان الوطني: <span class="nat">${esc(a.nat)}</span></span>` : ''}
+      ${hasLoc(a) ? '<span class="tag good" style="align-self:flex-start">محدد على الخريطة</span>' : '<span class="tag warn" style="align-self:flex-start">بدون موقع على الخريطة</span>'}
+      <div class="addr-acts"><button class="btn ghost sm" data-act="sheet" data-type="addr" data-id="${a.id}">${icon('edit', 'xs')} تعديل</button>${a.id !== defAddr()?.id ? `<button class="btn ghost sm" data-act="defAddr" data-id="${a.id}">اجعله الأساسي</button>` : ''}</div></div></div>`).join('')}
+    ${myAddrs().length < 6 ? `<button class="btn ghost block" data-act="sheet" data-type="addr">${icon('plus', 'sm')} أضف عنواناً</button>` : ''}
+    <p class="muted xs">موقعك الدقيق ورقمك ما يشوفها مقدم الخدمة إلا بعد ما يقبل طلبك.</p>`)}
   ${card('', `<div class="actions"><button class="btn ghost block" data-act="sheet" data-type="pin">${icon('key', 'sm')} تغيير الرمز السري</button><button class="btn danger block" data-act="logout">${icon('logout', 'sm')} تسجيل الخروج</button></div>`)}
   ${card('', `<p class="muted sm">الدفع في وش تبي عند الاستلام، نقداً أو تحويل مباشر لمقدم الخدمة.</p>`)}`;
 
@@ -1061,6 +1133,7 @@ function providerView(id) {
     <div class="facts"><div class="fact"><span>الدوام</span><b>${esc(p.hours || '—')}</b></div>
     ${c.visit ? `<div class="fact"><span>الزيارة من</span><b>${p.visitFee ? money(p.visitFee) : 'بعرض'}</b></div>` : `<div class="fact"><span>التوصيل</span><b>${p.delivers ? money(p.deliveryFee) : 'استلام فقط'}</b></div>`}
     <div class="fact"><span>${c.visit ? 'يخدم' : 'أقل طلب'}</span><b>${c.visit ? plural(p.districts.length, 'حي واحد', 'حيّين', 'أحياء') : money(p.minOrder)}</b></div></div>
+    ${hasLoc(p.loc) ? `<div class="loc-row"><span class="muted sm">${icon('pin', 'xs')} ${kmBetween(defAddr(), p.loc) != null ? `يبعد عنك ${kmText(kmBetween(defAddr(), p.loc))}` : 'موقع المحل محدد'}</span><a class="btn ghost sm" href="${gmapsDir(p.loc)}" target="_blank" rel="noopener">افتح في الخرائط</a></div>` : ''}
     ${favBtn(p, true)}</section>`;
   if (!c.hasMenu) return head + card('اكتب طلبك', composeForm('target'));
   const items = state.menus[id];
@@ -1112,8 +1185,9 @@ function checkoutView() {
   const shopish = ['laundry', 'tailor'].includes(p.cat);
   return card(esc(p.name), `<div class="lines">${rows}</div>`) +
     card('طريقة الاستلام', `<div class="opts">
-    ${p.delivers ? `<button class="opt ${state.co.fulfil === 'delivery' ? 'on' : ''}" data-act="fulfil" data-k="delivery" aria-pressed="${state.co.fulfil === 'delivery'}"><span><b>توصيل للبيت</b><small class="muted">${esc(u.address?.details || '')}${u.address?.details ? '، ' : ''}حي ${esc(u.address?.district || '')}</small></span><b class="num">${money(p.deliveryFee)}</b></button>` : ''}
+    ${p.delivers ? `<button class="opt ${state.co.fulfil === 'delivery' ? 'on' : ''}" data-act="fulfil" data-k="delivery" aria-pressed="${state.co.fulfil === 'delivery'}"><span><b>توصيل</b><small class="muted">${esc(addrById(state.co.addrId)?.label || '')} · حي ${esc(addrById(state.co.addrId)?.district || '')}</small></span><b class="num">${money(p.deliveryFee)}</b></button>` : ''}
     <button class="opt ${state.co.fulfil === 'pickup' ? 'on' : ''}" data-act="fulfil" data-k="pickup" aria-pressed="${state.co.fulfil === 'pickup'}"><span><b>${shopish ? 'أسلّم وأستلم في المحل' : 'أستلم من المحل'}</b><small class="muted">بدون رسوم</small></span><b class="num">0 ر.س</b></button></div>
+    ${state.co.fulfil === 'delivery' ? addrChooser('co', false) : ''}
     <label class="fld" for="co-when"><span>الموعد</span><select id="co-when" data-bind="co.when">${WHENS.slice(0, 4).map(w => `<option ${state.co.when === w ? 'selected' : ''}>${w}</option>`).join('')}</select></label>
     <label class="fld" for="co-note"><span>ملاحظة للمحل (اختياري)</span><textarea id="co-note" data-bind="co.note" rows="2" placeholder="مثال: إذا الصنف خلص جيبوا بديل قريب">${esc(state.co.note)}</textarea></label>`) +
     card('', `<div class="lines"><div class="line"><span>قيمة الطلب</span><span class="num">${money(t.subtotal)}</span></div>
@@ -1253,12 +1327,24 @@ function chatCard(o) {
 function logCard(o) {
   return `<section class="card"><details class="log"><summary>سجل الطلب (${o.events.length})</summary><ol>${[...o.events].reverse().map(e => `<li>${esc(e.text)}<span>${esc(e.byName)} · ${ago(e.at)}</span></li>`).join('')}</ol></details></section>`;
 }
+function locCard(o) {
+  const u = me(), a = o.address, shop = o.providerId ? P(o.providerId)?.loc : null, rows = [];
+  const isCour = u.role === 'courier', custSees = hasLoc(a);
+  if (isCour && hasLoc(shop) && ['in_progress'].includes(o.status)) rows.push(`<a class="btn dark block" href="${gmapsDir(shop)}" target="_blank" rel="noopener">${icon('store', 'sm')} الطريق إلى المحل: ${esc(o.providerName)}</a>`);
+  if (custSees && u.id !== o.customerId) rows.push(`<a class="btn primary block" href="${gmapsDir(a)}" target="_blank" rel="noopener">${icon('pin', 'sm')} الطريق إلى العميل في خرائط Google</a>`);
+  if (custSees && u.id === o.customerId) rows.push(`<p class="sm">${icon('pin', 'xs')} الموقع محدد على الخريطة (${esc(a.label || 'العنوان')})، ويظهر لمقدم الخدمة بعد قبول الطلب.</p>`);
+  if (!custSees && u.id === o.customerId && ACTIVE.includes(o.status) && o.fulfil !== 'pickup') rows.push(`<div class="note warn">${icon('pin', 'sm')}<span>هذا الطلب بدون موقع على الخريطة. حدد مواقع عناوينك من "حسابي" عشان طلباتك الجاية.</span></div>`);
+  if (a.nat && (u.id === o.customerId || custSees)) rows.push(`<p class="muted sm">العنوان الوطني: <span class="nat">${esc(a.nat)}</span></p>`);
+  const k = kmBetween(shop, a);
+  if (k != null && o.fulfil === 'delivery' && u.id !== o.customerId) rows.push(`<p class="muted sm">المسافة بين المحل والعميل تقريباً ${kmText(k)} (خط مستقيم).</p>`);
+  return rows.length ? card('الموقع', rows.join('')) : '';
+}
 function orderView(id) {
   const o = O(id); if (!o) return empty('هذا الطلب لم يعد متاحاً لك.');
   const cat = CAT(o.cat), out = ['cancelled', 'rejected'].includes(o.status);
   return `<section class="card"><div class="ohead-top"><div><div class="oid">طلب #${o.id}</div><div class="muted sm">${cat.name} · ${o.type === 'menu' ? 'من القائمة' : 'طلب نصي'} · ${ago(o.createdAt)}</div></div>${pill(o)}</div>
     ${out ? `<div class="note bad">${o.status === 'cancelled' ? 'أُلغي هذا الطلب' : 'اعتذر مقدم الخدمة عن هذا الطلب'}${o.reason ? `: ${esc(o.reason)}` : ''}</div>` : stepper(o)}</section>`
-    + actionsCard(o) + (o.type === 'text' && o.status === 'new' ? quotesCard(o) : '') + contentCard(o) + totalsCard(o) + partiesCard(o) + ratingCard(o) + chatCard(o) + logCard(o);
+    + actionsCard(o) + (o.type === 'text' && o.status === 'new' ? quotesCard(o) : '') + contentCard(o) + locCard(o) + totalsCard(o) + partiesCard(o) + ratingCard(o) + chatCard(o) + logCard(o);
 }
 
 /* ============================================================
@@ -1266,11 +1352,12 @@ function orderView(id) {
    ============================================================ */
 VIEWS.p_orders = u => {
   const os = db.orders.slice().sort(byNew);
+  const locNote = !hasLoc(u.loc) ? `<div class="note warn">${icon('pin', 'sm')}<span>موقع محلك غير محدد. <button class="link" data-act="sheet" data-type="shopLoc">حدده الآن</button></span></div>` : '';
   const targeted = os.filter(provTargeted), open = os.filter(provOpen);
   const working = os.filter(o => o.providerId === u.id && ['accepted', 'in_progress', 'with_courier'].includes(o.status));
   const done = os.filter(o => o.providerId === u.id && ['delivered', 'closed', 'cancelled', 'rejected'].includes(o.status));
   const k = state.sub.p_orders;
-  return seg('p_orders', [['targeted', 'موجّهة لي', targeted.filter(o => !quotedByMe(o)).length], ['open', 'مفتوحة في الحي', open.filter(o => !quotedByMe(o)).length], ['working', 'قيد التنفيذ', working.length], ['done', 'منتهية', 0]]) +
+  return locNote + seg('p_orders', [['targeted', 'موجّهة لي', targeted.filter(o => !quotedByMe(o)).length], ['open', 'مفتوحة في الحي', open.filter(o => !quotedByMe(o)).length], ['working', 'قيد التنفيذ', working.length], ['done', 'منتهية', 0]]) +
     (k === 'targeted' ? listOr(targeted, 'ما فيه طلبات موجّهة لك الآن. لما يضيفك عميل لمفضلته أو يختارك، تظهر طلباته هنا.')
       : k === 'open' ? (open.length ? `<p class="muted sm">طلبات ${CAT(u.cat).name} المفتوحة لكل المحلات في أحيائك. أرسل عرضك والعميل يختار.</p>${listOr(open, '')}` : empty('ما فيه طلبات مفتوحة في أحيائك الآن.'))
         : k === 'working' ? listOr(working, 'ما فيه طلبات قيد التنفيذ.') : listOr(done, 'ما فيه طلبات منتهية بعد.'));
@@ -1313,7 +1400,9 @@ VIEWS.p_shop = u => {
       <label class="toggle-row" for="s-delivers"><span><b>أوصّل الطلبات</b><small class="muted">إذا أطفأته يكون الاستلام من المحل فقط</small></span><input type="checkbox" id="s-delivers" name="delivers" ${u.delivers ? 'checked' : ''}></label>
       <label class="toggle-row" for="s-courier"><span><b>التوصيل عن طريق مندوب</b><small class="muted">المندوب يستلم من المحل ويحصّل من العميل</small></span><input type="checkbox" id="s-courier" name="usesCourier" ${u.usesCourier ? 'checked' : ''}></label>`}
     <div class="field-label">الأحياء اللي تخدمها</div><div class="checks">${db.settings.districts.map((d, i) => `<label for="s-d${i}"><input type="checkbox" id="s-d${i}" name="districts" value="${esc(d)}" ${u.districts.includes(d) ? 'checked' : ''}>${esc(d)}</label>`).join('')}</div>
-    <button class="btn dark block">حفظ</button></form>`) + accountCard();
+    <button class="btn dark block">حفظ</button></form>`) +
+  card('موقع المحل', `<p class="sm">${hasLoc(u.loc) ? '<span class="tag good">محدد على الخريطة</span> المندوب والعملاء يشوفون موقع محلك ويوصلون له بالخرائط.' : '<span class="tag warn">غير محدد</span> حدد موقع محلك عشان يوصلك المندوب، ويشوف العملاء كم يبعد عنهم.'}</p>
+    <button class="btn ${hasLoc(u.loc) ? 'ghost' : 'primary'} block" data-act="sheet" data-type="shopLoc">${icon('pin', 'sm')} ${hasLoc(u.loc) ? 'تعديل الموقع' : 'حدد موقع المحل'}</button>`) + accountCard();
 };
 const accountCard = () => card('', `<div class="actions"><button class="btn ghost block" data-act="sheet" data-type="pin">${icon('key', 'sm')} تغيير الرمز السري</button><button class="btn danger block" data-act="logout">${icon('logout', 'sm')} تسجيل الخروج</button></div>`);
 
@@ -1409,6 +1498,20 @@ function sheetHtml() {
     <div class="row2"><button class="btn ghost" data-act="testSound">${icon('bell', 'sm')} جرّب الصوت</button>
     ${'Notification' in window ? (Notification.permission === 'granted' ? '<span class="tag good" style="align-self:center;justify-self:start">إشعارات المتصفح مفعّلة</span>' : `<button class="btn ghost" data-act="askNotif">إشعارات المتصفح</button>`) : ''}</div>
     <p class="muted xs">التنبيه يشتغل والتطبيق مفتوح، حتى لو كان في تبويب ثاني.</p>`;
+  if (s.type === 'addr') {
+    const f = state.addrForm, ds = db.settings.districts;
+    h = `<h2>${s.id ? 'تعديل العنوان' : 'عنوان جديد'}</h2>
+      <div class="chips">${['البيت', 'العمل', 'الاستراحة', 'بيت الأهل'].concat(['البيت', 'العمل', 'الاستراحة', 'بيت الأهل'].includes(f.label) || !f.label ? [] : [f.label]).map(l => `<button type="button" class="chip ${f.label === l ? 'on' : ''}" data-act="addrLabel" data-k="${esc(l)}">${esc(l)}</button>`).join('')}</div>
+      ${mapPicker()}
+      <form data-form="addr" class="stack">
+        <div class="row2"><label class="fld" for="ad-district"><span>الحي</span><select id="ad-district" data-bind="addrForm.district">${ds.map(d => `<option ${f.district === d ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select></label>
+        <label class="fld" for="ad-nat"><span>العنوان الوطني المختصر (اختياري)</span><input id="ad-nat" data-bind="addrForm.nat" value="${esc(f.nat)}" dir="ltr" maxlength="8" placeholder="RRRD2929" autocapitalize="characters"></label></div>
+        <label class="fld" for="ad-details"><span>وصف يساعد الواصل</span><input id="ad-details" data-bind="addrForm.details" value="${esc(f.details)}" placeholder="مثال: فيلا 14، الباب الأخضر، جنب المسجد"></label>
+        <button class="btn primary block">حفظ العنوان</button>
+        ${s.id && myAddrs().length > 1 ? `<button type="button" class="btn danger block" data-act="delAddr">${icon('trash', 'sm')} حذف العنوان</button>` : ''}
+      </form>`;
+  }
+  if (s.type === 'shopLoc') h = `<h2>موقع المحل</h2><p class="muted sm">وقف عند باب المحل واضغط "موقعي الحالي"، أو اسحب الخريطة لين يصير الدبوس على المحل.</p>${mapPicker()}<button class="btn primary block" data-act="saveShopLoc">حفظ الموقع</button>`;
   if (s.type === 'pin') h = `<h2>تغيير الرمز السري</h2><form data-form="pin" class="stack">
     <label class="fld" for="pn-old"><span>الرمز الحالي</span><input id="pn-old" name="oldPin" type="password" inputmode="numeric" maxlength="4" dir="ltr" required></label>
     <div class="row2"><label class="fld" for="pn-new"><span>الرمز الجديد</span><input id="pn-new" name="newPin" type="password" inputmode="numeric" maxlength="4" dir="ltr" required></label>
@@ -1466,7 +1569,10 @@ const ACT = {
   sub(d) { state.sub[d.key] = d.k; render() },
   open(d) { if (d.v === 'order') { state.rate = 5; state.rateText = '' } go(d.v, d.v === 'order' ? +d.id : d.id) },
   back() { const t = state.stack.pop(); if (t && t.v === 'provider') state.compose.target = null; render() },
-  sheet(d) { if (d.type === 'catalog') state.filters.cat = ''; state.sheet = { type: d.type, id: d.id ? (['item', 'resetPin'].includes(d.type) ? d.id : +d.id) : undefined }; render() },
+  sheet(d) {
+    if (d.type === 'addr') { const a = d.id ? myAddrs().find(x => x.id === d.id) : null; state.addrForm = a ? { label: a.label, district: a.district, details: a.details || '', nat: a.nat || '', lat: a.lat, lng: a.lng } : { label: myAddrs().length ? 'العمل' : 'البيت', district: defAddr()?.district || db.settings.districts[0], details: '', nat: '', lat: null, lng: null }; state.locForm = state.addrForm; state.autoLocate = !hasLoc(state.addrForm) }
+    if (d.type === 'shopLoc') { state.locForm = { lat: me().loc?.lat || null, lng: me().loc?.lng || null }; state.autoLocate = !hasLoc(state.locForm) }
+    if (d.type === 'catalog') state.filters.cat = ''; state.sheet = { type: d.type, id: d.id ? (['item', 'resetPin', 'addr'].includes(d.type) ? d.id : +d.id) : undefined }; render() },
   close() { state.sheet = null; render() },
   scrim(d, e) { if (e.target.classList.contains('scrim')) { state.sheet = null; render() } },
   pickcat(d) { state.compose.cat = state.compose.cat === d.id ? '' : d.id; state.compose.scope = 'fav'; render() },
@@ -1483,7 +1589,7 @@ const ACT = {
   fulfil(d) { state.co.fulfil = d.k; render() },
   placeOrder() {
     const c = state.cart, lines = Object.entries(c.items).map(([id, qty]) => ({ id, qty }));
-    run('createMenuOrder', { pid: c.pid, lines, fulfil: state.co.fulfil, note: state.co.note.trim(), when: state.co.when }, () => `وصل طلبك إلى ${P(c.pid)?.name || 'المحل'}`,
+    run('createMenuOrder', { pid: c.pid, lines, addrId: addrById(state.co.addrId)?.id, fulfil: state.co.fulfil, note: state.co.note.trim(), when: state.co.when }, () => `وصل طلبك إلى ${P(c.pid)?.name || 'المحل'}`,
       j => { state.cart = null; state.compose.target = null; state.stack = [{ v: 'order', id: j.orderId }]; window.scrollTo(0, 0) });
   },
   accept(d) { run('accept', { id: d.id }, 'قبلت الطلب') },
@@ -1509,6 +1615,12 @@ const ACT = {
   toggleSound() { lsSet(LS_SOUND, soundOn() ? 'off' : ''); unlockAudio(); if (soundOn()) chime(true); render() },
   testSound() { unlockAudio(); setTimeout(() => chime(true), 60); try { navigator.vibrate && navigator.vibrate([150, 80, 150]) } catch (e) { } },
   askNotif() { try { Notification.requestPermission().then(p => { toast(p === 'granted' ? 'تفعّلت إشعارات المتصفح' : 'ما تفعّلت الإشعارات. تقدر تسمح بها من إعدادات المتصفح'); render() }) } catch (e) { toast('المتصفح ما يدعم الإشعارات') } },
+  locateMe() { locateMe() },
+  addrLabel(d) { state.addrForm.label = d.k; render() },
+  pickAddr(d) { state[d.key].addrId = d.id; render() },
+  defAddr(d) { run('setDefaultAddress', { addrId: d.id }, 'صار العنوان الأساسي') },
+  delAddr() { const id = state.sheet.id; run('deleteAddress', { addrId: id }, 'حُذف العنوان', () => { state.sheet = null }) },
+  saveShopLoc() { const f = state.locForm; if (!hasLoc(f)) { toast('حدد الموقع أول'); return } run('setShopLoc', { lat: f.lat, lng: f.lng }, 'حُفظ موقع المحل', () => { state.sheet = null }) },
   uStatus(d) { run('setUserStatus', { userId: d.id, status: d.k }, { active: 'تم التفعيل', blocked: 'تم إيقاف الحساب', rejected: 'تم رفض الطلب' }[d.k]) },
   uRole(d) { run('setRole', { userId: d.id, role: d.k }, d.k === 'broker' ? 'صار منسّقاً' : 'رجع طالب خدمة') }
 };
@@ -1554,6 +1666,11 @@ function shrinkImage(file) {
 }
 
 const FORMS = {
+  addr(f) {
+    const a = state.addrForm, id = state.sheet.id;
+    if (!hasLoc(a) && !a.details.trim() && !a.nat.trim()) { toast('حدد الموقع على الخريطة أو اكتب وصفاً للعنوان'); return }
+    run('saveAddress', { addrId: id || '', label: a.label, district: a.district, details: a.details.trim(), nat: a.nat.trim(), lat: a.lat, lng: a.lng }, hasLoc(a) ? 'حُفظ العنوان مع موقعه' : 'حُفظ العنوان بدون موقع على الخريطة', () => { state.sheet = null });
+  },
   setup(f) { const url = new FormData(f).get('url').trim(); if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)) { toast('الرابط لازم يكون من script.google.com'); return } apiUrl = url; lsSet(LS_API, url); state.boot = 'loading'; render(); boot() },
   login(f) {
     const fd = new FormData(f), ph = digits(fd.get('phone')), pin = digits(fd.get('pin'));
@@ -1580,13 +1697,13 @@ const FORMS = {
     if (!cat) { toast('اختر نوع الخدمة'); return }
     const favs = target ? [] : favProviders(cat), useFav = !target && favs.length && c.scope === 'fav';
     const targets = target ? [target] : useFav ? favs.map(p => p.id) : [];
-    run('createTextOrder', { cat, text, when: c.when, photo: c.photo || '', targets },
+    run('createTextOrder', { cat, text, when: c.when, photo: c.photo || '', targets, addrId: addrById(c.addrId)?.id },
       () => target ? `وصل طلبك إلى ${P(target)?.name}` : useFav ? `وصل طلبك لمفضلتك (${targets.length})` : 'وصل طلبك لكل مقدمي الخدمة في الحي',
       j => { resetCompose(); state.stack = [{ v: 'order', id: j.orderId }]; window.scrollTo(0, 0) });
   },
   quote(f) { const fd = new FormData(f), price = +fd.get('price'); if (!(price > 0)) { toast('اكتب السعر'); return } run('quote', { id: +f.dataset.id, price, when: fd.get('when'), note: (fd.get('note') || '').trim() }, 'وصل عرضك للعميل') },
   chat(f) { const t = (new FormData(f).get('text') || '').trim(); if (!t) return; run('message', { id: +f.dataset.id, text: t }, null, () => setTimeout(() => $('#chat-text')?.focus(), 30)) },
-  profile(f) { const fd = new FormData(f); run('saveProfile', { name: fd.get('name').trim(), district: fd.get('district'), details: fd.get('details').trim() }, 'حُفظت بياناتك') },
+  profile(f) { const fd = new FormData(f); run('saveProfile', { name: fd.get('name').trim() }, 'حُفظت بياناتك') },
   pin(f) {
     const fd = new FormData(f), n = digits(fd.get('newPin'));
     if (!/^\d{4}$/.test(n)) { toast('الرمز الجديد 4 أرقام'); return } if (n !== digits(fd.get('newPin2'))) { toast('الرمزان غير متطابقين'); return }
