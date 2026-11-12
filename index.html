@@ -395,6 +395,7 @@ const IC={
   phone:'<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z"/>'
 };
 
+IC.cake = '<path d="M4 21h16M5 21v-7h14v7"/><path d="M5 14c2 1.5 4.5 1.5 7 0s5-1.5 7 0"/><path d="M12 10V7M12 4v.01"/>';
 IC.leaf = '<path d="M5 19c0-8 6-14 15-14 0 9-6 15-14 15"/><path d="M5 19l7-7"/>';
 IC.bell = '<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/>';
 IC.logout = '<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h10"/>';
@@ -408,11 +409,12 @@ const LOGO = `<span class="logo" aria-label="وش تبي"><span>وش تبي</spa
 const CATS = [
   { id: 'grocery', name: 'تموينات', icon: 'cart', hasMenu: true, visit: false },
   { id: 'veg', name: 'خضار وفواكه', icon: 'leaf', hasMenu: true, visit: false },
+  { id: 'bakery', name: 'مخابز وحلويات', icon: 'cake', hasMenu: true, visit: false },
   { id: 'laundry', name: 'مغاسل', icon: 'shirt', hasMenu: true, visit: false },
   { id: 'tailor', name: 'خياطة', icon: 'scissors', hasMenu: true, visit: false },
-  { id: 'plumbing', name: 'سباكة', icon: 'drop', hasMenu: false, visit: true },
-  { id: 'electric', name: 'كهرباء', icon: 'bolt', hasMenu: false, visit: true },
-  { id: 'ac', name: 'تكييف', icon: 'snow', hasMenu: false, visit: true },
+  { id: 'plumbing', name: 'سباكة', icon: 'drop', hasMenu: true, visit: true },
+  { id: 'electric', name: 'كهرباء', icon: 'bolt', hasMenu: true, visit: true },
+  { id: 'ac', name: 'تكييف', icon: 'snow', hasMenu: true, visit: true },
   { id: 'paint', name: 'دهان', icon: 'roller', hasMenu: false, visit: true },
   { id: 'tiles', name: 'بلاط', icon: 'tiles', hasMenu: false, visit: true }
 ];
@@ -442,6 +444,28 @@ CATALOG_SRC.veg = [
   ['veg', 'الخضار', ['طماطم 1 كجم|5', 'خيار 1 كجم|6', 'بطاطس 1 كجم|4', 'بصل أحمر 1 كجم|3.5', 'بصل أبيض 1 كجم|4', 'جزر 1 كجم|5', 'كوسة 1 كجم|7', 'باذنجان 1 كجم|6', 'فلفل بارد ألوان 1 كجم|12', 'فلفل رومي أخضر 1 كجم|8', 'فلفل حار 250 جم|3', 'ثوم 250 جم|4', 'ليمون 1 كجم|8', 'ملفوف حبة|5', 'قرنبيط حبة|7', 'بامية 1 كجم|14', 'فاصوليا خضراء 1 كجم|12', 'ذرة حبة|3']],
   ['fruit', 'الفواكه', ['موز 1 كجم|7', 'تفاح أحمر 1 كجم|9', 'تفاح أخضر 1 كجم|10', 'برتقال 1 كجم|6', 'يوسفي 1 كجم|8', 'عنب 1 كجم|14', 'رمان 1 كجم|10', 'مانجو 1 كجم|15', 'بطيخ حبة|18', 'شمام حبة|12', 'فراولة 250 جم|10', 'كيوي 1 كجم|14', 'أفوكادو 1 كجم|18', 'جوافة 1 كجم|10', 'أناناس حبة|12']],
   ['herbs', 'الورقيات والأعشاب', ['بقدونس ربطة|1', 'كزبرة ربطة|1', 'نعناع ربطة|1.5', 'جرجير ربطة|1', 'شبت ربطة|1', 'خس روماني حبة|3', 'سبانخ ربطة|3', 'بصل أخضر ربطة|1.5', 'ريحان ربطة|2']]
+];
+/* ---------- قوائم جاهزة: المخابز والحلويات، والسباكة، والكهرباء، والتكييف ---------- */
+CATALOG_SRC.bakery = [
+  ['bread', 'الخبز', ['تميس حبة|1', 'صامولي 6 حبات|3', 'خبز عربي 5 أرغفة|2', 'خبز بر كبير|4', 'شريك 4 حبات|4', 'خبز توست طازج|6', 'خبز فرنسي حبة|3']],
+  ['pastry', 'المعجنات والفطائر', ['فطيرة جبن|3', 'فطيرة زعتر|2', 'فطيرة سبانخ|3', 'فطيرة لحم|4', 'سمبوسة 6 حبات|6', 'كرواسون سادة|3', 'كرواسون جبن|4', 'بيتزا صغيرة|6']],
+  ['cakes', 'الكيك والحلى', ['كيك شوكولاتة شريحة|8', 'كيك فانيلا شريحة|7', 'كيكة كاملة صغيرة 6 أشخاص|60', 'كيكة كاملة كبيرة 12 شخص|110', 'كب كيك 6 حبات|25', 'دونات 6 حبات|20', 'تشيز كيك شريحة|12']],
+  ['arabic', 'الحلويات الشرقية', ['كنافة 1 كجم|60', 'بسبوسة 1 كجم|35', 'بقلاوة مشكلة 1 كجم|70', 'لقيمات علبة|15', 'معمول تمر 500 جم|30', 'معمول فستق 500 جم|45', 'غريبة 500 جم|25', 'قطايف محشوة 10 حبات|20']],
+  ['cookies', 'البسكويت والكوكيز', ['كوكيز 6 حبات|15', 'بسكويت بالسمسم 500 جم|20', 'كعك بالتمر 500 جم|25', 'براونيز 6 قطع|25']]
+];
+CATALOG_SRC.plumbing = [
+  ['pl_fix', 'الإصلاح والتسليك', ['تسليك مجاري المطبخ|80', 'تسليك مجاري الحمام|80', 'تسليك بالوعة أرضية|70', 'إصلاح تسريب ماء|60', 'كشف تسريب بالجهاز|150', 'إصلاح سيفون الحمام|50', 'تغيير محبس|50']],
+  ['pl_install', 'التركيب', ['تركيب خلاط مغسلة|50', 'تركيب خلاط مطبخ|60', 'تركيب مغسلة|100', 'تركيب كرسي حمام إفرنجي|120', 'تركيب شطاف|30', 'تركيب دش|40']],
+  ['pl_heater', 'السخانات والخزانات والمضخات', ['تركيب سخان ماء|100', 'صيانة سخان|70', 'تنظيف خزان علوي|150', 'تركيب مضخة ماء|120', 'صيانة مضخة ماء|80']]
+];
+CATALOG_SRC.electric = [
+  ['el_fix', 'الكشف والإصلاح', ['كشف أعطال كهرباء|80', 'إصلاح تماس كهربائي|100', 'تغيير مفتاح إنارة|25', 'تغيير فيش (مقبس)|25', 'إصلاح لوحة توزيع (طبلون)|150', 'تغيير قاطع كهربائي|60']],
+  ['el_install', 'التركيب', ['تركيب لمبة سبوت|15', 'تركيب ثريا|80', 'تركيب مروحة سقف|70', 'تركيب إنارة خارجية|50', 'تمديد فيش جديد|60', 'تركيب جرس باب|40', 'تركيب حساس إنارة|50', 'تركيب شفاط|60']]
+];
+CATALOG_SRC.ac = [
+  ['ac_clean', 'الغسيل والصيانة', ['غسيل مكيف سبليت|60', 'غسيل مكيف شباك|50', 'غسيل مكيف دولابي|100', 'صيانة دورية للمكيف|80']],
+  ['ac_fix', 'الإصلاح والتعبئة', ['تعبئة فريون سبليت|150', 'تعبئة فريون شباك|120', 'كشف عطل مكيف|70', 'تغيير كمبروسر (بدون القطعة)|200', 'تغيير كباستور|80', 'تغيير مروحة مكيف|100', 'إصلاح تسريب ماء المكيف|60']],
+  ['ac_install', 'الفك والتركيب', ['فك وتركيب سبليت|250', 'تركيب مكيف سبليت جديد|200', 'فك وتركيب شباك|120', 'نقل مكيف من مكان لآخر|200']]
 ];
 const CATALOG = Object.fromEntries(Object.entries(CATALOG_SRC).map(([cat, secs]) => [cat, {
   sections: secs.map(([id, name]) => ({ id, name })),
@@ -680,6 +704,138 @@ const ITEM_TR_SRC = {
     ]
   }
 };
+Object.assign(SEC_TR_SRC, {
+  bread: 'Bread|روٹی|রুটি|ब्रेड',
+  pastry: 'Pastries & pies|پیسٹری اور فطیرے|পেস্ট্রি ও পাই|पेस्ट्री और पाई',
+  cakes: 'Cakes|کیک|কেক|केक',
+  arabic: 'Arabic sweets|عربی مٹھائیاں|আরবি মিষ্টি|अरबी मिठाई',
+  cookies: 'Cookies & biscuits|کوکیز اور بسکٹ|কুকিজ ও বিস্কুট|कुकीज़ और बिस्कुट',
+  pl_fix: 'Repairs & unclogging|مرمت اور نالی کھولنا|মেরামত ও ড্রেন পরিষ্কার|मरम्मत और नाली खोलना',
+  pl_install: 'Installation|تنصیب|লাগানো|फिटिंग',
+  pl_heater: 'Heaters, tanks & pumps|گیزر، ٹینکی اور موٹر|গিজার, ট্যাংক ও পাম্প|गीज़र, टंकी और पंप',
+  el_fix: 'Inspection & repairs|جانچ اور مرمت|পরীক্ষা ও মেরামত|जांच और मरम्मत',
+  el_install: 'Installation|تنصیب|লাগানো|फिटिंग',
+  ac_clean: 'Cleaning & service|دھلائی اور سروس|পরিষ্কার ও সার্ভিস|धुलाई और सर्विस',
+  ac_fix: 'Repair & gas refill|مرمت اور گیس|মেরামত ও গ্যাস|मरम्मत और गैस',
+  ac_install: 'Removal & installation|اتارنا اور لگانا|খোলা ও লাগানো|खोलना और लगाना'
+});
+Object.assign(ITEM_TR_SRC, {
+  bakery: {
+    bread: [
+      'Tamees bread 1 pc|تمیس روٹی 1 pc|তামিস রুটি 1 pc|तमीस रोटी 1 pc',
+      'Samoli bread 6 pcs|سامولی روٹی 6 pcs|সামুলি রুটি 6 pcs|सामूली ब्रेड 6 pcs',
+      'Arabic bread 5 pcs|عربی روٹی 5 pcs|আরবি রুটি 5 pcs|अरबी रोटी 5 pcs',
+      'Large brown bread|بڑی براؤن روٹی|বড় লাল আটার রুটি|बड़ी ब्राउन ब्रेड',
+      'Shureik sesame bread 4 pcs|شریک تل والی روٹی 4 pcs|শুরেইক তিলের রুটি 4 pcs|शुरैक तिल वाली ब्रेड 4 pcs',
+      'Fresh toast bread|تازہ ڈبل روٹی|তাজা পাউরুটি|ताज़ा ब्रेड',
+      'French baguette 1 pc|فرانسیسی روٹی (باگیٹ) 1 pc|ফরাসি রুটি (ব্যাগেট) 1 pc|फ्रेंच ब्रेड (बैगेट) 1 pc'
+    ],
+    pastry: [
+      'Cheese pie|پنیر والا فطیرہ|চিজ পাই|चीज़ पाई',
+      'Zaatar pie|زعتر والا فطیرہ|জাতার পাই|ज़ातर पाई',
+      'Spinach pie|پالک والا فطیرہ|পালং শাকের পাই|पालक पाई',
+      'Meat pie|گوشت والا فطیرہ|মাংসের পাই|मीट पाई',
+      'Samosa 6 pcs|سموسے 6 pcs|সমুচা 6 pcs|समोसे 6 pcs',
+      'Plain croissant|سادہ کروسان|সাদা ক্রোয়াসাঁ|सादा क्रोसां',
+      'Cheese croissant|پنیر کروسان|চিজ ক্রোয়াসাঁ|चीज़ क्रोसां',
+      'Small pizza|چھوٹا پیزا|ছোট পিজা|छोटा पिज़्ज़ा'
+    ],
+    cakes: [
+      'Chocolate cake slice|چاکلیٹ کیک ٹکڑا|চকলেট কেক স্লাইস|चॉकलेट केक स्लाइस',
+      'Vanilla cake slice|ونیلا کیک ٹکڑا|ভ্যানিলা কেক স্লাইস|वनीला केक स्लाइस',
+      'Whole cake, small (6 people)|پورا کیک، چھوٹا (6 افراد)|পুরো কেক, ছোট (6 জন)|पूरा केक, छोटा (6 लोग)',
+      'Whole cake, large (12 people)|پورا کیک، بڑا (12 افراد)|পুরো কেক, বড় (12 জন)|पूरा केक, बड़ा (12 लोग)',
+      'Cupcakes 6 pcs|کپ کیک 6 pcs|কাপকেক 6 pcs|कपकेक 6 pcs',
+      'Donuts 6 pcs|ڈونٹس 6 pcs|ডোনাট 6 pcs|डोनट्स 6 pcs',
+      'Cheesecake slice|چیز کیک ٹکڑا|চিজকেক স্লাইস|चीज़केक स्लाइस'
+    ],
+    arabic: [
+      'Kunafa 1 kg|کنافہ 1 kg|কুনাফা 1 kg|कुनाफ़ा 1 kg',
+      'Basbousa 1 kg|بسبوسہ 1 kg|বাসবুসা 1 kg|बसबूसा 1 kg',
+      'Mixed baklava 1 kg|مکس بقلاوہ 1 kg|মিক্স বাকলাভা 1 kg|मिक्स बकलावा 1 kg',
+      'Luqaimat (sweet dumplings), box|لقیمات (میٹھے پکوڑے)، ڈبہ|লুকাইমাত (মিষ্টি বড়া), বক্স|लुक़ैमात (मीठे पकौड़े), डिब्बा',
+      'Date maamoul 500 g|کھجور معمول 500 g|খেজুর মামুল 500 g|खजूर मामूल 500 g',
+      'Pistachio maamoul 500 g|پستہ معمول 500 g|পেস্তা মামুল 500 g|पिस्ता मामूल 500 g',
+      'Ghraiba butter cookies 500 g|غریبہ (مکھن بسکٹ) 500 g|গোরাইবা বাটার বিস্কুট 500 g|ग़्रैबा बटर कुकीज़ 500 g',
+      'Stuffed qatayef 10 pcs|بھرے قطایف 10 pcs|ভরা কাতায়েফ 10 pcs|भरे क़तायफ़ 10 pcs'
+    ],
+    cookies: [
+      'Cookies 6 pcs|کوکیز 6 pcs|কুকিজ 6 pcs|कुकीज़ 6 pcs',
+      'Sesame biscuits 500 g|تل والے بسکٹ 500 g|তিলের বিস্কুট 500 g|तिल के बिस्कुट 500 g',
+      'Date ka\'ak 500 g|کھجور والے کعک 500 g|খেজুরের কাক 500 g|खजूर वाले काक 500 g',
+      'Brownies 6 pcs|براؤنیز 6 pcs|ব্রাউনিজ 6 pcs|ब्राउनीज़ 6 pcs'
+    ]
+  },
+  plumbing: {
+    pl_fix: [
+      'Unclog kitchen drain|کچن کی نالی کھولنا|রান্নাঘরের ড্রেন পরিষ্কার|रसोई की नाली खोलना',
+      'Unclog bathroom drain|باتھ روم کی نالی کھولنا|বাথরুমের ড্রেন পরিষ্কার|बाथरूम की नाली खोलना',
+      'Unclog floor drain|فرش کی نالی کھولنا|মেঝের ড্রেন পরিষ্কার|फ़र्श की नाली खोलना',
+      'Fix water leak|پانی کا رساؤ ٹھیک کرنا|পানির লিক মেরামত|पानी का रिसाव ठीक करना',
+      'Leak detection with device|مشین سے رساؤ کی جانچ|যন্ত্র দিয়ে লিক শনাক্ত|मशीन से रिसाव की जांच',
+      'Fix toilet flush|فلش ٹھیک کرنا|টয়লেট ফ্লাশ মেরামত|टॉयलेट फ़्लश ठीक करना',
+      'Replace water valve|پانی کا والو بدلنا|পানির ভাল্ব পরিবর্তন|पानी का वाल्व बदलना'
+    ],
+    pl_install: [
+      'Install basin mixer tap|واش بیسن مکسر نل لگانا|বেসিনের মিক্সার কল লাগানো|वॉश बेसिन मिक्सर नल लगाना',
+      'Install kitchen mixer tap|کچن مکسر نل لگانا|রান্নাঘরের মিক্সার কল লাগানো|रसोई मिक्सर नल लगाना',
+      'Install washbasin|واش بیسن لگانا|বেসিন লাগানো|वॉश बेसिन लगाना',
+      'Install western toilet|ویسٹرن ٹوائلٹ (کموڈ) لگانا|কমোড লাগানো|वेस्टर्न टॉयलेट (कमोड) लगाना',
+      'Install bidet sprayer|شطاف (مسلم شاور) لگانا|শাটাফ (হ্যান্ড শাওয়ার) লাগানো|शट्टाफ़ (हैंड शावर) लगाना',
+      'Install shower|شاور لگانا|শাওয়ার লাগানো|शावर लगाना'
+    ],
+    pl_heater: [
+      'Install water heater|گیزر لگانا|গিজার লাগানো|गीज़र लगाना',
+      'Water heater repair|گیزر کی مرمت|গিজার মেরামত|गीज़र की मरम्मत',
+      'Clean roof water tank|چھت کی ٹینکی صاف کرنا|ছাদের পানির ট্যাংক পরিষ্কার|छत की पानी की टंकी साफ़ करना',
+      'Install water pump|پانی کی موٹر لگانا|পানির পাম্প লাগানো|पानी का पंप लगाना',
+      'Water pump repair|پانی کی موٹر کی مرمت|পানির পাম্প মেরামত|पानी के पंप की मरम्मत'
+    ]
+  },
+  electric: {
+    el_fix: [
+      'Electrical fault inspection|بجلی کی خرابی کی جانچ|বৈদ্যুতিক ত্রুটি পরীক্ষা|बिजली की खराबी की जांच',
+      'Fix short circuit|شارٹ سرکٹ ٹھیک کرنا|শর্ট সার্কিট মেরামত|शॉर्ट सर्किट ठीक करना',
+      'Replace light switch|لائٹ سوئچ بدلنا|লাইটের সুইচ পরিবর্তন|लाइट स्विच बदलना',
+      'Replace power socket|ساکٹ بدلنا|সকেট পরিবর্তন|सॉकेट बदलना',
+      'Fix distribution board|ڈسٹری بیوشن بورڈ ٹھیک کرنا|ডিস্ট্রিবিউশন বোর্ড মেরামত|डिस्ट्रीब्यूशन बोर्ड ठीक करना',
+      'Replace circuit breaker|سرکٹ بریکر بدلنا|সার্কিট ব্রেকার পরিবর্তন|सर्किट ब्रेकर बदलना'
+    ],
+    el_install: [
+      'Install spotlight|اسپاٹ لائٹ لگانا|স্পটলাইট লাগানো|स्पॉटलाइट लगाना',
+      'Install chandelier|جھومر لگانا|ঝাড়বাতি লাগানো|झूमर लगाना',
+      'Install ceiling fan|چھت کا پنکھا لگانا|সিলিং ফ্যান লাগানো|छत का पंखा लगाना',
+      'Install outdoor lighting|باہر کی لائٹ لگانا|বাইরের লাইট লাগানো|बाहरी लाइट लगाना',
+      'Add new socket|نیا ساکٹ لگانا|নতুন সকেট লাগানো|नया सॉकेट लगाना',
+      'Install doorbell|گھنٹی لگانا|কলিং বেল লাগানো|डोरबेल लगाना',
+      'Install motion light sensor|لائٹ سینسر لگانا|লাইট সেন্সর লাগানো|लाइट सेंसर लगाना',
+      'Install exhaust fan|ایگزاسٹ فین لگانا|এক্সহস্ট ফ্যান লাগানো|एग्ज़ॉस्ट फ़ैन लगाना'
+    ]
+  },
+  ac: {
+    ac_clean: [
+      'Split AC cleaning|اسپلٹ اے سی کی دھلائی|স্প্লিট এসি পরিষ্কার|स्प्लिट एसी की धुलाई',
+      'Window AC cleaning|ونڈو اے سی کی دھلائی|উইন্ডো এসি পরিষ্কার|विंडो एसी की धुलाई',
+      'Floor-standing AC cleaning|کھڑے اے سی کی دھلائی|ফ্লোর স্ট্যান্ডিং এসি পরিষ্কার|फ़्लोर स्टैंडिंग एसी की धुलाई',
+      'AC routine maintenance|اے سی کی معمول کی سروس|এসির নিয়মিত সার্ভিস|एसी की नियमित सर्विस'
+    ],
+    ac_fix: [
+      'Split AC gas refill|اسپلٹ اے سی گیس بھرنا|স্প্লিট এসির গ্যাস ভরা|स्प्लिट एसी गैस भरना',
+      'Window AC gas refill|ونڈو اے سی گیس بھرنا|উইন্ডো এসির গ্যাস ভরা|विंडो एसी गैस भरना',
+      'AC fault inspection|اے سی کی خرابی کی جانچ|এসির ত্রুটি পরীক্ষা|एसी की खराबी की जांच',
+      'Replace compressor (labor only)|کمپریسر بدلنا (صرف مزدوری)|কম্প্রেসার পরিবর্তন (শুধু মজুরি)|कंप्रेसर बदलना (सिर्फ़ मज़दूरी)',
+      'Replace capacitor|کپیسٹر بدلنا|ক্যাপাসিটর পরিবর্তন|कैपेसिटर बदलना',
+      'Replace AC fan motor|اے سی پنکھا بدلنا|এসির ফ্যান পরিবর্তন|एसी पंखा बदलना',
+      'Fix AC water leak|اے سی سے پانی ٹپکنا ٹھیک کرنا|এসির পানি পড়া মেরামত|एसी से पानी टपकना ठीक करना'
+    ],
+    ac_install: [
+      'Remove & reinstall split AC|اسپلٹ اے سی اتارنا اور لگانا|স্প্লিট এসি খোলা ও লাগানো|स्प्लिट एसी खोलना और लगाना',
+      'Install new split AC|نیا اسپلٹ اے سی لگانا|নতুন স্প্লিট এসি লাগানো|नया स्प्लिट एसी लगाना',
+      'Remove & reinstall window AC|ونڈو اے سی اتارنا اور لگانا|উইন্ডো এসি খোলা ও লাগানো|विंडो एसी खोलना और लगाना',
+      'Move AC to another place|اے سی دوسری جگہ منتقل کرنا|এসি অন্য জায়গায় সরানো|एसी दूसरी जगह लगाना'
+    ]
+  }
+});
 const ITEM_TR = {}, SEC_TR = {};
 TR_LANGS.forEach((l, li) => {
   ITEM_TR[l] = {}; SEC_TR[l] = {};
@@ -687,6 +843,19 @@ TR_LANGS.forEach((l, li) => {
   Object.entries(ITEM_TR_SRC).forEach(([cat, secs]) => Object.entries(secs).forEach(([sec, arr]) => arr.forEach((v, i) => { ITEM_TR[l][`${cat}-${sec}-${i + 1}`] = v.split('|')[li] })));
 });
 
+/* ---------- الخدمات والكميات ---------- */
+const isSvc = cat => { const c = CAT(cat); return c.visit && c.hasMenu };
+const unitWord = cat => isSvc(cat) ? 'خدمة' : 'صنف';
+const halfOK = (it, cat) => ['veg', 'bakery'].includes(cat) && /(^|\s)1 كجم/.test(it.name || '');
+const fmtQty = (q, it, cat) => halfOK(it, cat) ? `${q} كجم` : `${q}`;
+const DAYS = ['أقرب وقت', 'اليوم', 'غداً', 'بعد غد'];
+const PERIODS = ['صباحاً (8–12)', 'ظهراً (12–4)', 'مساءً (4–9)', 'أي وقت'];
+function visitWhen(key) {
+  const st = state[key]; st.day = st.day || 'أقرب وقت'; st.period = st.period || 'أي وقت';
+  return `<div class="row2"><label class="fld" for="${key}-day"><span>اليوم</span><select id="${key}-day" data-bind="${key}.day" data-rerender="1">${DAYS.map(d => `<option ${st.day === d ? 'selected' : ''}>${d}</option>`).join('')}</select></label>
+    ${st.day !== 'أقرب وقت' ? `<label class="fld" for="${key}-period"><span>الفترة</span><select id="${key}-period" data-bind="${key}.period">${PERIODS.map(d => `<option ${st.period === d ? 'selected' : ''}>${d}</option>`).join('')}</select></label>` : '<span></span>'}</div>`;
+}
+const whenOf = key => { const st = state[key]; return !st.day || st.day === 'أقرب وقت' ? 'أقرب وقت' : `${st.day} · ${st.period || 'أي وقت'}` };
 const myLang = () => (db && db.me && db.me.lang) || 'ar';
 /* ---------- المواقع ---------- */
 const RIYADH = [24.7136, 46.6753];
@@ -1071,8 +1240,9 @@ function composeForm(mode) {
           <button type="button" class="${scope === 'all' ? 'on' : ''}" data-act="scope" data-k="all">كل الحي${all ? ` (${all})` : ''}</button></div>
           ${scope === 'fav' ? `<p class="muted xs">${favs.map(p => esc(p.name)).join('، ')}</p>` : ''}` : ''}`}
     ${addrChooser('compose', t ? CAT(t.cat).visit : (c.cat && CAT(c.cat).visit))}
+    ${(t ? CAT(t.cat).visit : c.cat && CAT(c.cat).visit) ? visitWhen('compose') : ''}
     <div class="row2">
-      <label class="sel" for="c-when">${icon('clock', 'sm')}<select id="c-when" data-bind="compose.when" aria-label="الموعد المناسب">${WHENS.map(w => `<option ${c.when === w ? 'selected' : ''}>${w}</option>`).join('')}</select></label>
+      ${(t ? CAT(t.cat).visit : c.cat && CAT(c.cat).visit) ? '<span></span>' : `<label class="sel" for="c-when">${icon('clock', 'sm')}<select id="c-when" data-bind="compose.when" aria-label="الموعد المناسب">${WHENS.map(w => `<option ${c.when === w ? 'selected' : ''}>${w}</option>`).join('')}</select></label>`}
       <label class="btn ghost file" for="c-photo">${icon('camera', 'sm')} ${c.photo ? 'تغيير الصورة' : 'إرفاق صورة'}<input type="file" accept="image/*" id="c-photo" hidden></label>
     </div>
     ${c.photo ? `<div class="thumb"><img src="${c.photo}" alt="الصورة المرفقة"><button type="button" class="x" data-act="unphoto" aria-label="حذف الصورة">${icon('x', 'sm')}</button></div>` : ''}
@@ -1127,7 +1297,7 @@ function categoryView(id) {
   const provs = providersIn(d, id).sort((a, b) => (isFav(b.id) - isFav(a.id)) || (avg(b) - avg(a)));
   const favs = favProviders(id);
   return `<section class="card"><div class="phead"><span class="pav">${icon(c.icon)}</span><div><h1>${c.name}</h1><p class="muted sm">${provs.length} مقدم خدمة في حي ${esc(d)}${favs.length ? ` · ${favs.length} في مفضلتك` : ''}</p></div></div>
-    <p class="sm">${c.visit ? 'اكتب المشكلة، ويوصلك عرض سعر من مفضلتك أو من كل فنيي الحي، وتختار الأنسب.' : 'اطلب من قائمة محل تختاره، أو اكتب طلبك ويوصل لمفضلتك أو لكل المحلات.'}</p>
+    <p class="sm">${c.visit ? (c.hasMenu ? 'اختر الخدمة من قائمة فني تعرفه وحدد الموعد، أو اكتب المشكلة ويوصلك عرض سعر من مفضلتك أو من كل فنيي الحي.' : 'اكتب المشكلة، ويوصلك عرض سعر من مفضلتك أو من كل فنيي الحي، وتختار الأنسب.') : 'اطلب من قائمة محل تختاره، أو اكتب طلبك ويوصل لمفضلتك أو لكل المحلات.'}</p>
     <button class="btn primary block" data-act="askCat" data-id="${id}">${icon('send', 'sm')} اكتب طلبك</button></section>
   <section><div class="sec-h"><h2>اختر بنفسك</h2></div>${provs.length ? `<div class="list">${provs.map(providerCard).join('')}</div>` : empty('ما فيه مقدمو خدمة معتمدون لهذه الخدمة في حيّك بعد.')}</section>`;
 }
@@ -1151,10 +1321,11 @@ function providerView(id) {
   if (!items) { loadMenu(id); return head + card('القائمة', '<div class="spin" role="status" aria-label="جارٍ تحميل القائمة"></div>') }
   const cart = state.cart && state.cart.pid === id ? state.cart.items : {};
   const ordered = [...items.filter(i => i.available), ...items.filter(i => !i.available)];
-  const row = i => { const q = cart[i.id] || 0; return `<div class="item ${i.available ? '' : 'off'}" data-s="${esc(norm(i.name))}"><span class="nm"><b>${esc(i.name)}</b><span class="muted sm num">${money(i.price)}</span></span>
-    ${!i.available ? '<span class="tag">غير متوفر الآن</span>' : q ? `<span class="stepper"><button data-act="qty" data-id="${i.id}" data-d="1" aria-label="زيادة">${icon('plus', 'sm')}</button><b class="num">${q}</b><button data-act="qty" data-id="${i.id}" data-d="-1" aria-label="إنقاص">${icon('minus', 'sm')}</button></span>` : `<button class="add1" data-act="qty" data-id="${i.id}" data-d="1">أضف</button>`}</div>` };
-  return head + (items.length ? menuBrowser(p, ordered, row, 'cm') : card('القائمة', '<p class="muted">المحل يجهّز قائمته الآن. تقدر تكتب طلبك له نصياً تحت.</p>')) +
-    card('', `<details class="more" ${items.length ? '' : 'open'}><summary>ما لقيت اللي تبيه؟ اكتبه للمحل</summary>${composeForm('target')}</details>`);
+  const svc = isSvc(p.cat);
+  const row = i => { const q = cart[i.id] || 0, half = halfOK(i, p.cat); return `<div class="item ${i.available ? '' : 'off'}" data-s="${esc(norm(i.name))}"><span class="nm"><b>${esc(i.name)}</b><span class="muted sm num">${svc ? 'يبدأ من ' : ''}${money(i.price)}${half ? ' للكيلو' : ''}</span></span>
+    ${!i.available ? `<span class="tag">${svc ? 'غير متاحة الآن' : 'غير متوفر الآن'}</span>` : q ? `<span class="stepper"><button data-act="qty" data-id="${i.id}" data-d="1" aria-label="زيادة">${icon('plus', 'sm')}</button><b class="num">${fmtQty(q, i, p.cat)}</b><button data-act="qty" data-id="${i.id}" data-d="-1" aria-label="إنقاص">${icon('minus', 'sm')}</button></span>` : `<button class="add1" data-act="qty" data-id="${i.id}" data-d="1">${svc ? 'اطلب' : 'أضف'}</button>`}</div>` };
+  return head + (items.length ? menuBrowser(p, ordered, row, 'cm') : card(svc ? 'الخدمات' : 'القائمة', `<p class="muted">${svc ? 'الفني يجهّز قائمة خدماته الآن. اكتب له المشكلة تحت.' : 'المحل يجهّز قائمته الآن. تقدر تكتب طلبك له نصياً تحت.'}</p>`)) +
+    card('', `<details class="more" ${items.length ? '' : 'open'}><summary>${svc ? 'ما لقيت خدمتك؟ اكتب المشكلة للفني' : 'ما لقيت اللي تبيه؟ اكتبه للمحل'}</summary>${composeForm('target')}</details>`);
 }
 function groupBySec(p, items) {
   const cat = CATALOG[p.cat]; if (!cat) return [{ id: 'all', name: '', items }];
@@ -1163,9 +1334,9 @@ function groupBySec(p, items) {
 }
 function menuBrowser(p, items, row, key) {
   const groups = groupBySec(p, items);
-  const tools = `<div class="menu-tools"><label class="search" for="f-${key}">${icon('search', 'sm')}<input id="f-${key}" data-filter="${key}" value="${esc(state.filters[key] || '')}" placeholder="ابحث في ${items.length} صنف" autocomplete="off" aria-label="بحث في الأصناف"></label>
+  const tools = `<div class="menu-tools"><label class="search" for="f-${key}">${icon('search', 'sm')}<input id="f-${key}" data-filter="${key}" value="${esc(state.filters[key] || '')}" placeholder="ابحث في ${items.length} ${unitWord(p.cat)}" autocomplete="off" aria-label="بحث في الأصناف"></label>
     ${groups.length > 1 ? `<div class="chips scroll">${groups.map(g => `<button type="button" class="chip" data-act="jump" data-id="${key}-${g.id}">${key === 'pm' ? secLabel(g) : g.name}</button>`).join('')}</div>` : ''}</div>`;
-  return `<div data-filter-root="${key}" class="stack">${tools}${groups.map(g => `<section class="card msec fgroup" id="${key}-${g.id}">${g.name ? `<div class="msec-h"><h3>${key === 'pm' ? secLabel(g) : g.name}</h3><span class="muted xs">${g.items.length} صنف</span></div>` : ''}<div>${g.items.map(row).join('')}</div></section>`).join('')}<div class="empty fempty" hidden>ما لقينا صنف بهذا الاسم.</div></div>`;
+  return `<div data-filter-root="${key}" class="stack">${tools}${groups.map(g => `<section class="card msec fgroup" id="${key}-${g.id}">${g.name ? `<div class="msec-h"><h3>${key === 'pm' ? secLabel(g) : g.name}</h3><span class="muted xs">${g.items.length} ${unitWord(p.cat)}</span></div>` : ''}<div>${g.items.map(row).join('')}</div></section>`).join('')}<div class="empty fempty" hidden>ما لقينا ${unitWord(p.cat)} بهذا الاسم.</div></div>`;
 }
 function applyFilters() {
   document.querySelectorAll('[data-filter]').forEach(inp => {
@@ -1179,20 +1350,26 @@ function applyFilters() {
 function cartTotals() {
   const c = state.cart, m = c && state.menus[c.pid]; if (!c || !m) return { count: 0, subtotal: 0 };
   const ids = Object.keys(c.items).filter(k => m.some(x => x.id === k));
-  return { count: ids.reduce((s, k) => s + c.items[k], 0), subtotal: ids.reduce((s, k) => s + m.find(x => x.id === k).price * c.items[k], 0) };
+  return { count: ids.length, subtotal: ids.reduce((s, k) => s + m.find(x => x.id === k).price * c.items[k], 0) };
 }
 function cartBar(top) {
   if (!top || top.v !== 'provider' || !state.cart || state.cart.pid !== top.id) return '';
   const t = cartTotals(); if (!t.count) return '';
-  return `<button class="cartbar" data-act="open" data-v="checkout"><span>متابعة الطلب <span class="cnt">${t.count}</span></span><span class="num">${money(t.subtotal)}</span></button>`;
+  return `<button class="cartbar" data-act="open" data-v="checkout"><span>${isSvc(P(top.id)?.cat) ? 'متابعة الحجز' : 'متابعة الطلب'} <span class="cnt">${t.count}</span></span><span class="num">${money(t.subtotal)}</span></button>`;
 }
 function checkoutView() {
   const u = me(), c = state.cart; if (!c) return empty('السلة فارغة');
   const p = P(c.pid), m = state.menus[c.pid] || [], t = cartTotals();
   if (!p) return empty('المحل غير متاح الآن.');
+  const rows = Object.entries(c.items).map(([id, q]) => { const it = m.find(x => x.id === id); return it ? `<div class="line"><span>${esc(it.name)} <span class="muted">× ${fmtQty(q, it, p.cat)}</span></span><span class="num">${money(it.price * q)}</span></div>` : '' }).join('');
+  if (isSvc(p.cat)) return card(esc(p.name), `<div class="lines">${rows}</div>`) +
+    card('الموعد والموقع', `${addrChooser('co', true)}${visitWhen('co')}
+    <label class="fld" for="co-note"><span>وصف المشكلة أو ملاحظة للفني (اختياري)</span><textarea id="co-note" data-bind="co.note" rows="2" placeholder="مثال: التسريب تحت مغسلة المطبخ من أمس">${esc(state.co.note)}</textarea></label>`) +
+    card('', `<div class="lines"><div class="line total"><span>التقدير المبدئي</span><span class="num">${money(t.subtotal)}</span></div></div>
+    <div class="note info">${icon('wallet', 'sm')}<span>الأسعار تبدأ من المبلغ الموضح، والسعر النهائي يتفق عليه الفني معك في الموقع ويسجّله عند الانتهاء. الدفع بعد التنفيذ.</span></div>
+    <button class="btn primary block" data-act="placeOrder" ${!t.count ? 'disabled' : ''}>أرسل طلب الخدمة</button>`);
   if (!p.delivers) state.co.fulfil = 'pickup';
   const del = state.co.fulfil === 'delivery' ? p.deliveryFee : 0, below = t.subtotal < p.minOrder;
-  const rows = Object.entries(c.items).map(([id, q]) => { const it = m.find(x => x.id === id); return it ? `<div class="line"><span>${esc(it.name)} <span class="muted">× ${q}</span></span><span class="num">${money(it.price * q)}</span></div>` : '' }).join('');
   const shopish = ['laundry', 'tailor'].includes(p.cat);
   return card(esc(p.name), `<div class="lines">${rows}</div>`) +
     card('طريقة الاستلام', `<div class="opts">
@@ -1241,7 +1418,7 @@ function loadPhoto(id) {
     .finally(() => { const t = state.stack.at(-1); if (t && t.v === 'order' && t.id === id) render() });
 }
 function contentCard(o) {
-  if (o.type === 'menu') return card('الأصناف', `<div class="lines">${o.items.map((i, x) => `<div class="line"><span>${itemLabel(i, o, x)} <span class="muted">× ${i.qty}</span></span><span class="num">${money(i.price * i.qty)}</span></div>`).join('')}</div>
+  if (o.type === 'menu') return card('الأصناف', `<div class="lines">${o.items.map((i, x) => `<div class="line"><span>${itemLabel(i, o, x)} <span class="muted">× ${fmtQty(i.qty, i, o.cat)}</span></span><span class="num">${money(i.price * i.qty)}</span></div>`).join('')}</div>
     ${o.text ? `<div class="note">${icon('chat', 'sm')}<span>${showTr(o.text, o.textTr)}</span></div>` : ''}<div class="meta-row">${icon('truck', 'xs')} ${fulfilLabel(o)} · ${icon('clock', 'xs')} ${esc(o.when)}</div>`);
   let ph = '';
   if (o.hasPhoto) { if (state.photos[o.id] === undefined) { loadPhoto(o.id); ph = '<div class="spin" role="status" aria-label="جارٍ تحميل الصورة"></div>' } else if (state.photos[o.id]) ph = `<img class="photo" src="${state.photos[o.id]}" alt="صورة مرفقة بالطلب">` }
@@ -1281,11 +1458,13 @@ function totalsCard(o) {
   if (!o.subtotal) return '';
   const u = me(), done = ['delivered', 'closed'].includes(o.status), f = done ? { platform: o.platformFee, broker: o.brokerFee } : fees(o);
   const showComm = ['provider', 'admin', 'broker'].includes(u.role);
-  return card('', `<div class="lines"><div class="line"><span>${o.type === 'text' ? 'قيمة الخدمة' : 'قيمة الطلب'}</span><span class="num">${money(o.subtotal)}</span></div>
+  const visitOpen = o.fulfil === 'visit' && !['delivered', 'closed'].includes(o.status) && o.type === 'menu';
+  return card('', `<div class="lines">${o.estimate ? `<div class="line"><span class="muted">التقدير المبدئي</span><span class="num muted">${money(o.estimate)}</span></div>` : ''}<div class="line"><span>${visitOpen ? 'التقدير المبدئي (يبدأ من)' : o.estimate ? 'السعر النهائي' : o.type === 'text' || o.fulfil === 'visit' ? 'قيمة الخدمة' : 'قيمة الطلب'}</span><span class="num">${money(o.subtotal)}</span></div>
+    ${o.priceNote ? `<div class="note">${icon('chat', 'sm')}<span>${showTr(o.priceNote, o.priceNoteTr)}</span></div>` : ''}
     ${o.deliveryFee ? `<div class="line"><span>التوصيل</span><span class="num">${money(o.deliveryFee)}</span></div>` : ''}
     <div class="line total"><span>الإجمالي</span><span class="num">${money(o.total)}</span></div>
     ${showComm ? `<div class="line"><span class="muted sm">العمولة</span><span class="muted sm">${o.rates?.trial ? 'مجانية (فترة التجربة)' : `المنصة ${money(f.platform)}${o.brokerId ? ` · المنسّق ${money(f.broker)}` : ''}`}</span></div>` : ''}</div>
-    <div class="note">${icon('wallet', 'sm')} الدفع عند الاستلام${o.needsCourier ? '، ويحصّله المندوب' : ''}.</div>`);
+    <div class="note">${icon('wallet', 'sm')} ${visitOpen ? 'السعر النهائي يتفق عليه الفني معك في الموقع، والدفع بعد التنفيذ.' : `الدفع عند الاستلام${o.needsCourier ? '، ويحصّله المندوب' : ''}.`}</div>`);
 }
 function actionsCard(o) {
   const u = me(), b = [];
@@ -1303,7 +1482,8 @@ function actionsCard(o) {
         if (!o.courierRequested) b.push(btn('requestCourier', `${icon('truck', 'sm')} الطلب جاهز، اطلب مندوب`, 'dark'));
         else if (!o.courierId) b.push(`<div class="note info">${icon('truck', 'sm')} طلبنا مندوب، وننتظر أحد يقبل المهمة.</div>`);
         else b.push(`<div class="note info">${icon('truck', 'sm')} ${esc(o.courierName)} في الطريق لاستلام الطلب.</div>`);
-      } else b.push(btn('complete', `تم ${o.fulfil === 'visit' ? 'تنفيذ الخدمة' : 'التسليم'} واستلمت ${money(o.total)}`, 'good'));
+      } else if (o.fulfil === 'visit') b.push(btn('sheet', 'تم تنفيذ الخدمة · سجّل السعر النهائي', 'good', 'data-type="final"'));
+      else b.push(btn('complete', `تم التسليم واستلمت ${money(o.total)}`, 'good'));
     }
     if (o.status === 'with_courier') b.push(`<div class="note info">${icon('truck', 'sm')} الطلب مع ${esc(o.courierName)} في الطريق للعميل.</div>`);
   }
@@ -1376,16 +1556,16 @@ VIEWS.p_orders = u => {
 VIEWS.p_menu = u => {
   const items = db.menu || [], cat = CATALOG[u.cat], cn = CAT(u.cat).name;
   if (!items.length && cat) return `<section class="card starter"><h2>ابدأ قائمتك في دقيقة</h2>
-    <p>جهّزنا لك قائمة ${cn} فيها ${cat.items.length} صنف في ${cat.sections.length} ${cat.sections.length > 2 ? 'أقسام' : 'قسم'}، بأسعار مقترحة تقديرية تعدّلها حسب محلك.</p>
-    <div class="actions"><button class="btn primary block" data-act="addAllCatalog">${icon('plus', 'sm')} أضف القائمة كاملة (${cat.items.length} صنف)</button>
-    <button class="btn ghost block" data-act="sheet" data-type="catalog">أختار الأصناف بنفسي</button>
-    <button class="btn ghost block" data-act="sheet" data-type="item">أضيف صنف خاص</button></div></section>`;
+    <p>جهّزنا لك قائمة ${cn} فيها ${cat.items.length} ${unitWord(u.cat)} في ${cat.sections.length} ${cat.sections.length > 2 ? 'أقسام' : 'قسم'}، ${isSvc(u.cat) ? 'بأسعار تبدأ من مبلغ مقترح تعدّله حسب شغلك. السعر النهائي تحدده عند الانتهاء.' : 'بأسعار مقترحة تقديرية تعدّلها حسب محلك.'}</p>
+    <div class="actions"><button class="btn primary block" data-act="addAllCatalog">${icon('plus', 'sm')} أضف القائمة كاملة (${cat.items.length} ${unitWord(u.cat)})</button>
+    <button class="btn ghost block" data-act="sheet" data-type="catalog">${isSvc(u.cat) ? 'أختار الخدمات بنفسي' : 'أختار الأصناف بنفسي'}</button>
+    <button class="btn ghost block" data-act="sheet" data-type="item">${isSvc(u.cat) ? 'أضيف خدمة خاصة' : 'أضيف صنف خاص'}</button></div></section>`;
   const off = items.filter(i => !i.available).length;
-  const row = i => `<div class="item ${i.available ? '' : 'off'}" data-s="${esc(norm(i.name + ' ' + itemTrName(i)))}"><span class="nm"><b>${itemLabel(i)}</b><span class="muted sm num">${money(i.price)}${i.available ? '' : ' · غير متوفر'}</span></span>
+  const row = i => `<div class="item ${i.available ? '' : 'off'}" data-s="${esc(norm(i.name + ' ' + itemTrName(i)))}"><span class="nm"><b>${itemLabel(i)}</b><span class="muted sm num">${isSvc(u.cat) ? 'يبدأ من ' : ''}${money(i.price)}${i.available ? '' : ' · غير متوفر'}</span></span>
     <span class="iact"><button class="switch ${i.available ? 'on' : ''}" data-act="toggleItem" data-id="${i.id}" role="switch" aria-checked="${i.available}" aria-label="متوفر: ${esc(i.name)}"></button>
     <button class="iconbtn light" data-act="sheet" data-type="item" data-id="${i.id}" aria-label="تعديل ${esc(i.name)}">${icon('edit', 'sm')}</button></span></div>`;
-  return `<div class="${cat ? 'row2' : 'actions'}">${cat ? `<button class="btn primary" data-act="sheet" data-type="catalog">${icon('plus', 'sm')} من القائمة الجاهزة</button>` : ''}<button class="btn ${cat ? 'ghost' : 'primary block'}" data-act="sheet" data-type="item">${cat ? '' : icon('plus', 'sm') + ' '}صنف خاص</button></div>
-    <p class="muted sm">${items.length ? `${items.length} صنف في قائمتك${off ? ` · ${off} غير متوفر الآن` : ''}. اضغط ${icon('edit', 'xs')} لتعديل السعر.` : 'أضف أول صنف في قائمتك.'}</p>
+  return `<div class="${cat ? 'row2' : 'actions'}">${cat ? `<button class="btn primary" data-act="sheet" data-type="catalog">${icon('plus', 'sm')} من القائمة الجاهزة</button>` : ''}<button class="btn ${cat ? 'ghost' : 'primary block'}" data-act="sheet" data-type="item">${cat ? '' : icon('plus', 'sm') + ' '}${isSvc(u.cat) ? 'خدمة خاصة' : 'صنف خاص'}</button></div>
+    <p class="muted sm">${items.length ? `${items.length} ${unitWord(u.cat)} في قائمتك${off ? ` · ${off} غير متوفر الآن` : ''}. اضغط ${icon('edit', 'xs')} لتعديل السعر.` : 'أضف أول صنف في قائمتك.'}</p>
     ${items.length ? menuBrowser(u, items, row, 'pm') : ''}`;
 };
 VIEWS.p_income = u => {
@@ -1522,6 +1702,13 @@ function sheetHtml() {
         ${s.id && myAddrs().length > 1 ? `<button type="button" class="btn danger block" data-act="delAddr">${icon('trash', 'sm')} حذف العنوان</button>` : ''}
       </form>`;
   }
+  if (s.type === 'final') {
+    const o = O(s.id);
+    h = `<h2>إنهاء الخدمة #${s.id}</h2><p class="muted sm">سجّل المبلغ اللي اتفقت عليه مع العميل واستلمته. ${o && o.total ? `التقدير المبدئي كان ${money(o.total)}.` : ''}</p>
+      <form data-form="final" class="stack"><label class="fld" for="fn-amt"><span>السعر النهائي (ر.س)</span><input id="fn-amt" name="amount" type="number" min="1" step="1" inputmode="numeric" required value="${o ? o.total || '' : ''}"></label>
+      <label class="fld" for="fn-note"><span>سبب الفرق أو تفاصيل الشغل (اختياري)</span><input id="fn-note" name="note" placeholder="مثال: تم تغيير المحبس وقطعة إضافية"></label>
+      <button class="btn good block">تم التنفيذ واستلمت المبلغ</button></form>`;
+  }
   if (s.type === 'shopLoc') h = `<h2>موقع المحل</h2><p class="muted sm">وقف عند باب المحل واضغط "موقعي الحالي"، أو اسحب الخريطة لين يصير الدبوس على المحل.</p>${mapPicker()}<button class="btn primary block" data-act="saveShopLoc">حفظ الموقع</button>`;
   if (s.type === 'pin') h = `<h2>تغيير الرمز السري</h2><form data-form="pin" class="stack">
     <label class="fld" for="pn-old"><span>الرمز الحالي</span><input id="pn-old" name="oldPin" type="password" inputmode="numeric" maxlength="4" dir="ltr" required></label>
@@ -1581,6 +1768,7 @@ const ACT = {
   open(d) { if (d.v === 'order') { state.rate = 5; state.rateText = '' } go(d.v, d.v === 'order' ? +d.id : d.id) },
   back() { const t = state.stack.pop(); if (t && t.v === 'provider') state.compose.target = null; render() },
   sheet(d) {
+    if (d.type === 'final') { state.sheet = { type: 'final', id: +d.id }; render(); return }
     if (d.type === 'addr') { const a = d.id ? myAddrs().find(x => x.id === d.id) : null; state.addrForm = a ? { label: a.label, district: a.district, details: a.details || '', nat: a.nat || '', lat: a.lat, lng: a.lng } : { label: myAddrs().length ? 'العمل' : 'البيت', district: defAddr()?.district || db.settings.districts[0], details: '', nat: '', lat: null, lng: null }; state.locForm = state.addrForm; state.autoLocate = !hasLoc(state.addrForm) }
     if (d.type === 'shopLoc') { state.locForm = { lat: me().loc?.lat || null, lng: me().loc?.lng || null }; state.autoLocate = !hasLoc(state.locForm) }
     if (d.type === 'catalog') state.filters.cat = ''; state.sheet = { type: d.type, id: d.id ? (['item', 'resetPin', 'addr'].includes(d.type) ? d.id : +d.id) : undefined }; render() },
@@ -1595,12 +1783,15 @@ const ACT = {
   qty(d) {
     const top = state.stack.at(-1), pid = top?.id, m = state.menus[pid] || [], it = m.find(x => x.id === d.id); if (!it) return;
     if (!state.cart || state.cart.pid !== pid) { if (state.cart && Object.keys(state.cart.items).length) toast('بدأت سلة جديدة من هذا المحل'); state.cart = { pid, items: {} }; state.co = { fulfil: P(pid)?.delivers ? 'delivery' : 'pickup', note: '', when: 'أقرب وقت' } }
-    const q = (state.cart.items[it.id] || 0) + (+d.d); if (q <= 0) delete state.cart.items[it.id]; else state.cart.items[it.id] = q; render();
+    const step = halfOK(it, P(pid)?.cat) ? 0.5 : 1;
+    const cur = state.cart.items[it.id] || 0;
+    const q = !cur && +d.d > 0 ? 1 : Math.round((cur + (+d.d) * step) * 2) / 2; if (q <= 0) delete state.cart.items[it.id]; else state.cart.items[it.id] = q; render();
   },
   fulfil(d) { state.co.fulfil = d.k; render() },
   placeOrder() {
     const c = state.cart, lines = Object.entries(c.items).map(([id, qty]) => ({ id, qty }));
-    run('createMenuOrder', { pid: c.pid, lines, addrId: addrById(state.co.addrId)?.id, fulfil: state.co.fulfil, note: state.co.note.trim(), when: state.co.when }, () => `وصل طلبك إلى ${P(c.pid)?.name || 'المحل'}`,
+    const svc = isSvc(P(c.pid)?.cat);
+    run('createMenuOrder', { pid: c.pid, lines, addrId: addrById(state.co.addrId)?.id, fulfil: svc ? 'visit' : state.co.fulfil, note: state.co.note.trim(), when: svc ? whenOf('co') : state.co.when }, () => `وصل طلبك إلى ${P(c.pid)?.name || 'المحل'}`,
       j => { state.cart = null; state.compose.target = null; state.stack = [{ v: 'order', id: j.orderId }]; window.scrollTo(0, 0) });
   },
   accept(d) { run('accept', { id: d.id }, 'قبلت الطلب') },
@@ -1651,6 +1842,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   const t = e.target;
+  if (t.dataset.rerender) { const [o, k] = t.dataset.bind.split('.'); state[o][k] = t.value; render(); return }
   if (t.name === 'cid' && state.sheet?.type === 'catalog') {
     const sel = state.sheet.sel, v = t.value; if (t.checked) { if (!sel.includes(v)) sel.push(v) } else sel.splice(sel.indexOf(v), 1);
     const b = document.querySelector('[data-act=addCatalog]'); if (b) { b.disabled = !sel.length; b.textContent = `أضف المحدد (${sel.length})` } return;
@@ -1681,6 +1873,10 @@ function shrinkImage(file) {
 }
 
 const FORMS = {
+  final(f) {
+    const fd = new FormData(f), amt = +fd.get('amount'); if (!(amt > 0)) { toast('اكتب المبلغ'); return }
+    const id = state.sheet.id; run('complete', { id, finalTotal: amt, priceNote: (fd.get('note') || '').trim() }, `تم تسجيل التنفيذ بمبلغ ${money(amt)}`, () => { state.sheet = null });
+  },
   addr(f) {
     const a = state.addrForm, id = state.sheet.id;
     if (!hasLoc(a) && !a.details.trim() && !a.nat.trim()) { toast('حدد الموقع على الخريطة أو اكتب وصفاً للعنوان'); return }
@@ -1712,7 +1908,7 @@ const FORMS = {
     if (!cat) { toast('اختر نوع الخدمة'); return }
     const favs = target ? [] : favProviders(cat), useFav = !target && favs.length && c.scope === 'fav';
     const targets = target ? [target] : useFav ? favs.map(p => p.id) : [];
-    run('createTextOrder', { cat, text, when: c.when, photo: c.photo || '', targets, addrId: addrById(c.addrId)?.id },
+    run('createTextOrder', { cat, text, when: CAT(cat).visit ? whenOf('compose') : c.when, photo: c.photo || '', targets, addrId: addrById(c.addrId)?.id },
       () => target ? `وصل طلبك إلى ${P(target)?.name}` : useFav ? `وصل طلبك لمفضلتك (${targets.length})` : 'وصل طلبك لكل مقدمي الخدمة في الحي',
       j => { resetCompose(); state.stack = [{ v: 'order', id: j.orderId }]; window.scrollTo(0, 0) });
   },
