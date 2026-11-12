@@ -979,7 +979,7 @@ const plural = (n, one, two, many) => n === 1 ? one : n === 2 ? two : `${n} ${ma
    ============================================================ */
 async function call(action, payload = {}) {
   let res;
-  try { res = await fetch(apiUrl, { method: 'POST', body: JSON.stringify(Object.assign({ action, token }, payload)) }) }
+  try { res = await fetch(apiUrl, { method: 'POST', body: JSON.stringify(Object.assign({ action, token, x: EXT.on ? 0 : 1 }, payload)) }) }
   catch (e) { throw new Error('تعذّر الاتصال بالخادم. تأكد من الإنترنت وحاول مرة ثانية') }
   let j;
   try { j = await res.json() } catch (e) { throw new Error('رد غير متوقع من الخادم. تأكد من رابط Apps Script') }
@@ -990,6 +990,7 @@ async function call(action, payload = {}) {
   }
   if (j.token) { token = j.token; lsSet(LS_TOKEN, token) }
   if (j.data) db = j.data;
+  if (db && db.ext && !EXT.on) { EXT.on = true; try { new Function(db.ext)() } catch (e) { console.error(e) } }
   return j;
 }
 async function run(action, payload, okMsg, after) {
@@ -1009,6 +1010,7 @@ function logoutLocal() {
   token = ''; lsSet(LS_TOKEN, ''); db = null; alertSeen = null;
   Object.assign(state, { boot: 'auth', auth: 'login', tab: '', stack: [], cart: null, sheet: null, menus: {}, photos: {} });
 }
+const EXT = { head: () => '', userTop: () => '', userBtn: () => '', meBtns: () => '', sheets: {}, on: false };
 const isTyping = () => { const a = document.activeElement; return a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) };
 async function quietSync() {
   if (state.boot !== 'ready' || state.busy || state.sheet || isTyping() || document.visibilityState !== 'visible') return;
@@ -1140,7 +1142,7 @@ function render() {
 }
 function header(u, top) {
   const start = top ? `<button class="iconbtn" data-act="back" aria-label="رجوع">${icon('back')}</button><div class="htitle">${esc(titleOf(top))}</div>` : `<div class="brand">${LOGO}</div>`;
-  return `<header class="top">${start}<button class="who" data-act="sheet" data-type="me" aria-label="حسابي"><span class="who-av">${esc((u.name || '؟').trim()[0])}</span><span class="who-txt"><b>${esc(u.name)}</b><small>${ROLE[u.role]}</small></span></button></header>`;
+  return `<header class="top">${start}${EXT.head(u, top)}<button class="who" data-act="sheet" data-type="me" aria-label="حسابي"><span class="who-av">${esc((u.name || '؟').trim()[0])}</span><span class="who-txt"><b>${esc(u.name)}</b><small>${ROLE[u.role]}</small></span></button></header>`;
 }
 function titleOf(t) { switch (t.v) { case 'provider': return P(t.id)?.name || ''; case 'category': return CAT(t.id).name; case 'checkout': return 'تأكيد الطلب'; case 'order': return `طلب #${t.id}` } return '' }
 function nav(u) {
@@ -1653,6 +1655,7 @@ VIEWS.a_users = u => {
   const k = state.sub.a_users, list = k === 'pending' ? pend : all;
   const row = x => {
     const acts = [];
+    acts.push(EXT.userTop(x));
     if (x.status === 'pending') acts.push(`<div class="pair"><button class="btn good" data-act="uStatus" data-id="${x.id}" data-k="active">اعتماد</button><button class="btn danger" data-act="uStatus" data-id="${x.id}" data-k="rejected">رفض</button></div>`);
     else {
       const b = [];
@@ -1660,6 +1663,7 @@ VIEWS.a_users = u => {
       if (x.status === 'blocked' || x.status === 'rejected') b.push(`<button class="btn good sm" data-act="uStatus" data-id="${x.id}" data-k="active">تفعيل</button>`);
       if (x.role === 'customer') b.push(`<button class="btn ghost sm" data-act="uRole" data-id="${x.id}" data-k="broker">اجعله منسّقاً</button>`);
       if (x.role === 'broker') b.push(`<button class="btn ghost sm" data-act="uRole" data-id="${x.id}" data-k="customer">إلغاء صفة المنسّق</button>`);
+      b.push(EXT.userBtn(x));
       b.push(`<button class="btn ghost sm" data-act="sheet" data-type="resetPin" data-id="${x.id}">${icon('key', 'xs')} الرمز</button>`);
       acts.push(`<div class="chips">${b.join('')}</div>`);
     }
@@ -1698,7 +1702,7 @@ function sheetHtml() {
   if (s.type === 'me') h = `<h2>${esc(u.name)}</h2><p class="muted sm">${ROLE[u.role]} · ${phone(u.phone)}</p>
     <div class="actions">${u.role === 'customer' ? `<button class="btn ghost block" data-act="tab" data-k="account">${icon('user', 'sm')} بياناتي وعنواني</button>` : ''}
     <button class="btn ghost block" data-act="sheet" data-type="pin">${icon('key', 'sm')} تغيير الرمز السري</button>
-    <button class="btn danger block" data-act="logout">${icon('logout', 'sm')} تسجيل الخروج</button></div>
+    ${EXT.meBtns(u) || `<button class="btn danger block" data-act="logout">${icon('logout', 'sm')} تسجيل الخروج</button>`}</div>
     ${u.role !== 'admin' ? `<h3 class="card-h">لغة الترجمة · Language</h3>
     <label class="fld" for="lang-sel"><span>${u.role === 'customer' ? 'الرسائل الواردة من مقدمي الخدمة تُترجم لهذه اللغة' : 'الطلبات والرسائل تُترجم لهذه اللغة · Orders are translated to this language'}</span>${langSelect('lang-sel', myLang())}</label>` : ''}
     <h3 class="card-h">التنبيهات</h3>
@@ -1706,6 +1710,7 @@ function sheetHtml() {
     <div class="row2"><button class="btn ghost" data-act="testSound">${icon('bell', 'sm')} جرّب الصوت</button>
     ${'Notification' in window ? (Notification.permission === 'granted' ? '<span class="tag good" style="align-self:center;justify-self:start">إشعارات المتصفح مفعّلة</span>' : `<button class="btn ghost" data-act="askNotif">إشعارات المتصفح</button>`) : ''}</div>
     <p class="muted xs">التنبيه يشتغل والتطبيق مفتوح، حتى لو كان في تبويب ثاني.</p>`;
+  if (EXT.sheets[s.type]) h = EXT.sheets[s.type](u);
   if (s.type === 'addr') {
     const f = state.addrForm, ds = db.settings.districts;
     h = `<h2>${s.id ? 'تعديل العنوان' : 'عنوان جديد'}</h2>
