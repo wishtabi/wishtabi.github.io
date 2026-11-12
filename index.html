@@ -336,6 +336,7 @@ details.orig span{font-size:13px;color:var(--muted)}
 .tag.warn{background:var(--warn-soft);color:var(--warn)}
 .nat{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.5px;direction:ltr;unicode-bidi:isolate}
 .dist{font-size:12px;color:var(--muted);white-space:nowrap}
+.checks label.dim{opacity:.5}
 </style>
 </head>
 <body>
@@ -954,10 +955,19 @@ const avg = p => p && p.ratingCount ? p.ratingSum / p.ratingCount : 0;
 const ratingText = p => p && p.ratingCount ? `★ ${avg(p).toFixed(1)} (${p.ratingCount})` : 'جديد';
 const phone = p => p ? `<span dir="ltr">${esc(p)}</span>` : '';
 function ago(t) { const s = (Date.now() - t) / 1000; if (s < 60) return 'الآن'; const m = Math.floor(s / 60); if (m < 60) return `قبل ${m} د`; const h = Math.floor(m / 60); if (h < 24) return `قبل ${h} س`; const d = Math.floor(h / 24); return d === 1 ? 'أمس' : d === 2 ? 'قبل يومين' : `قبل ${d} أيام` }
-const providersIn = (district, cat) => db.providers.filter(p => p.districts.includes(district) && (!cat || p.cat === cat));
+const catsOf = p => (p && p.cats && p.cats.length) ? p.cats : (p && p.cat ? [p.cat] : []);
+const catNames = p => catsOf(p).map(c => CAT(c).name).join(' · ');
+const kindOf = c => CAT(c).visit ? 'visit' : 'shop';
+const itemCat = (it, p) => it && it.cid ? String(it.cid).split('-')[0] : (p ? p.cat : '');
+function catalogFor(p) {
+  const cs = catsOf(p).filter(c => CATALOG[c]); if (!cs.length) return null;
+  const multi = cs.length > 1;
+  return { sections: cs.flatMap(c => CATALOG[c].sections.map(x => multi ? { id: x.id, name: `${CAT(c).name} · ${x.name}` } : x)), items: cs.flatMap(c => CATALOG[c].items) };
+}
+const providersIn = (district, cat) => db.providers.filter(p => p.districts.includes(district) && (!cat || catsOf(p).includes(cat)));
 const favIds = () => (me().favorites || []);
 const isFav = id => favIds().includes(id);
-const favProviders = cat => favIds().map(P).filter(p => p && (!cat || p.cat === cat));
+const favProviders = cat => favIds().map(P).filter(p => p && (!cat || catsOf(p).includes(cat)));
 const fulfilLabel = o => ({ delivery: 'توصيل للبيت', pickup: 'استلام من المحل', visit: 'زيارة في الموقع' })[o.fulfil] || '';
 function feeLabel(p) { const c = CAT(p.cat); if (c.visit) return p.visitFee ? `زيارة من ${money(p.visitFee)}` : 'السعر بعرض'; return p.delivers ? `توصيل ${money(p.deliveryFee)}` : 'استلام من المحل' }
 function fees(o) { const r = o.rates || {}; if (r.trial) return { platform: 0, broker: 0 }; const b = o.subtotal; return o.brokerId ? { platform: b * r.brokerPlatform / 100, broker: b * r.broker / 100 } : { platform: b * r.platform / 100, broker: 0 } }
@@ -1078,7 +1088,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { un
    ============================================================ */
 const state = {
   boot: 'loading', bootError: '', config: null, busy: false, auth: 'login',
-  reg: { role: 'customer', name: '', phone: '', pin: '', pin2: '', district: '', details: '', cat: '', hours: '', vehicle: '', districts: [], lang: 'ar' },
+  reg: { role: 'customer', name: '', phone: '', pin: '', pin2: '', district: '', details: '', cat: '', cats: [], hours: '', vehicle: '', districts: [], lang: 'ar' },
   tab: '', stack: [], cart: null, co: { fulfil: 'delivery', note: '', when: 'أقرب وقت' },
   compose: { text: '', cat: '', when: 'أقرب وقت', photo: null, target: null, scope: 'fav' },
   sub: { orders: 'current', p_orders: 'targeted', a_orders: 'active', a_users: 'pending' },
@@ -1092,7 +1102,7 @@ const TABS = {
   broker: [{ k: 'b_open', l: 'تنتظر مقدم', i: 'link' }, { k: 'b_mine', l: 'طلباتي', i: 'receipt' }, { k: 'b_wallet', l: 'المحفظة', i: 'wallet' }],
   admin: [{ k: 'a_overview', l: 'نظرة عامة', i: 'chart' }, { k: 'a_users', l: 'المستخدمون', i: 'users' }, { k: 'a_orders', l: 'الطلبات', i: 'receipt' }, { k: 'a_settings', l: 'الإعدادات', i: 'sliders' }]
 };
-const tabsFor = u => (TABS[u.role] || []).filter(t => !t.menuOnly || CAT(u.cat).hasMenu);
+const tabsFor = u => (TABS[u.role] || []).filter(t => !t.menuOnly || catsOf(u).some(c => CAT(c).hasMenu));
 function ensureTab() { const u = me(); if (!tabsFor(u).some(t => t.k === state.tab)) state.tab = (tabsFor(u)[0] || {}).k }
 const provTargeted = o => o.status === 'new' && (o.providerId === me().id || o.targetedToMe);
 const provOpen = o => o.status === 'new' && !o.providerId && !o.targetedToMe;
@@ -1153,6 +1163,11 @@ function setupView() {
     <form data-form="setup" class="stack"><label class="fld" for="api-url"><span>الرابط</span><input id="api-url" name="url" dir="ltr" placeholder="https://script.google.com/macros/s/…/exec" required value="${esc(apiUrl)}"></label>
     <button class="btn primary block">حفظ ومتابعة</button></form></section></div></div>`;
 }
+function catPicker(key, sel) {
+  const k = sel && sel.length ? kindOf(sel[0]) : null;
+  const grp = (kind, title) => `<div class="field-label">${title}</div><div class="checks">${CATS.filter(c => kindOf(c.id) === kind).map(c => `<label for="${key}-c-${c.id}" class="${k && k !== kind ? 'dim' : ''}"><input type="checkbox" id="${key}-c-${c.id}" name="${key}Cats" value="${c.id}" ${sel.includes(c.id) ? 'checked' : ''}>${c.name}</label>`).join('')}</div>`;
+  return `<div class="stack" style="gap:8px">${grp('shop', 'محل (توصيل أو استلام)')}${grp('visit', 'فني (زيارة في الموقع)')}<p class="muted xs">تقدر تختار أكثر من خدمة من نفس النوع، مثل سباكة وكهرباء، أو تموينات وخضار.</p></div>`;
+}
 function authView() {
   const districts = state.config?.districts || ['السعادة'], r = state.reg;
   const hero = `<div class="auth-hero">${LOGO}<p>كل خدمات حيّك في مكان واحد</p></div>`;
@@ -1173,7 +1188,7 @@ function authView() {
       ${f('r-pin2', 'pin2', 'أعد كتابة الرمز', 'type="password" inputmode="numeric" maxlength="4" dir="ltr" autocomplete="new-password" required')}</div>
       ${r.role === 'customer' ? `<label class="fld" for="r-district"><span>الحي</span><select id="r-district" data-bind="reg.district">${districts.map(d => `<option ${r.district === d ? 'selected' : ''}>${esc(d)}</option>`).join('')}</select></label>
         ${f('r-details', 'details', 'العنوان التفصيلي', 'placeholder="الشارع، رقم البيت أو العمارة"')}` : ''}
-      ${r.role === 'provider' ? `<label class="fld" for="r-cat"><span>نوع الخدمة</span><select id="r-cat" data-bind="reg.cat"><option value="">اختر…</option>${CATS.map(c => `<option value="${c.id}" ${r.cat === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}</select></label>
+      ${r.role === 'provider' ? catPicker('reg', r.cats) + `
         ${f('r-hours', 'hours', 'أوقات العمل', 'placeholder="مثال: 7 ص – 11 م"')}
         <div class="field-label">الأحياء اللي تخدمها</div><div class="checks">${districts.map((d, i) => `<label for="rd${i}"><input type="checkbox" id="rd${i}" name="regDistricts" value="${esc(d)}" ${r.districts.includes(d) ? 'checked' : ''}>${esc(d)}</label>`).join('')}</div>` : ''}
       ${r.role === 'courier' ? f('r-vehicle', 'vehicle', 'السيارة', 'placeholder="مثال: هايلكس 2019"') : ''}
@@ -1214,7 +1229,7 @@ const favBtn = (p, big) => me().role !== 'customer' ? '' : big
 function providerCard(p) {
   const c = CAT(p.cat);
   return `<div class="pcard"><button class="pmain" data-act="open" data-v="provider" data-id="${p.id}"><span class="pav">${icon(c.icon)}</span>
-    <span class="pbody"><b>${esc(p.name)}</b><span class="muted sm">${c.name}${p.hours ? ` · ${esc(p.hours)}` : ''}</span></span>
+    <span class="pbody"><b>${esc(p.name)}</b><span class="muted sm">${catNames(p)}${p.hours ? ` · ${esc(p.hours)}` : ''}</span></span>
     <span class="pmeta"><span class="star">${ratingText(p)}</span><span class="muted xs">${feeLabel(p)}</span>${me().role === 'customer' && kmBetween(defAddr(), p.loc) != null ? `<span class="dist">${icon('pin', 'xs')} ${kmText(kmBetween(defAddr(), p.loc))}</span>` : ''}</span></button>${favBtn(p)}</div>`;
 }
 function addrChooser(key, visit) {
@@ -1223,6 +1238,7 @@ function addrChooser(key, visit) {
   const warn = !hasLoc(cur) ? `<button type="button" class="link" data-act="sheet" data-type="addr" data-id="${cur.id}">${icon('pin', 'xs')} حدد موقع "${esc(cur.label)}" على الخريطة</button>` : '';
   return `<div class="field-label">${visit ? 'موقع الخدمة' : 'يوصل إلى'}</div>${list.length > 1 ? `<div class="chips scroll">${list.map(a => `<button type="button" class="chip ${a.id === cur.id ? 'on' : ''}" data-act="pickAddr" data-key="${key}" data-id="${a.id}">${icon('pin', 'xs')} ${esc(a.label)}</button>`).join('')}</div>` : `<p class="sm">${icon('pin', 'xs')} ${esc(cur.label)} · حي ${esc(cur.district)}</p>`}${warn}`;
 }
+const tCat = t => catsOf(t).includes(state.compose.cat) ? state.compose.cat : catsOf(t)[0];
 function composeForm(mode) {
   const c = state.compose, u = me(), t = mode === 'target' && c.target ? P(c.target) : null;
   const visit = t && CAT(t.cat).visit;
@@ -1233,7 +1249,7 @@ function composeForm(mode) {
   return `<form data-form="text-order" data-mode="${mode}" class="stack" novalidate>
     <textarea id="c-text" data-bind="compose.text" rows="3" aria-label="اكتب طلبك" placeholder="${visit || !t ? 'اكتب طلبك بكلماتك… مثال: أبي سبّاك يصلح تسريب تحت مغسلة المطبخ' : 'اكتب اللي تبيه وما لقيته في القائمة'}">${esc(c.text)}</textarea>
     <p class="muted xs hint">${icon('chat', 'xs')} بعض مقدمي الخدمة يقرأون طلبك مترجماً للغتهم، فاكتب بوضوح ومن غير اختصارات.</p>
-    ${t ? `<div class="target">${icon('store', 'sm')} يوصل إلى <b>${esc(t.name)}</b> وحده</div>`
+    ${t ? `<div class="target">${icon('store', 'sm')} يوصل إلى <b>${esc(t.name)}</b> وحده</div>${catsOf(t).length > 1 ? `<div class="chips">${catsOf(t).map(k => `<button type="button" class="chip ${tCat(t) === k ? 'on' : ''}" data-act="pickcat" data-id="${k}" data-keep="1">${icon(CAT(k).icon, 'sm')}${CAT(k).name}</button>`).join('')}</div>` : ''}`
       : `<div class="field-label">نوع الخدمة</div><div class="chips scroll">${CATS.map(k => `<button type="button" class="chip ${c.cat === k.id ? 'on' : ''}" data-act="pickcat" data-id="${k.id}" aria-pressed="${c.cat === k.id}">${icon(k.icon, 'sm')}${k.name}</button>`).join('')}</div>
         ${favs.length ? `<div class="field-label">يوصل إلى</div><div class="seg">
           <button type="button" class="${scope === 'fav' ? 'on' : ''}" data-act="scope" data-k="fav">${icon('star', 'xs')} مفضلتي (${favs.length})</button>
@@ -1269,7 +1285,7 @@ VIEWS.home = u => {
 VIEWS.favs = u => {
   const favs = favProviders();
   if (!favs.length) return card('مفضلتي', `<p>اضغط ${icon('star', 'xs')} عند أي محل أو فني يعجبك ويصير في مفضلتك.</p><p class="muted sm">بعدها طلباتك النصية تروح لمفضلتك في نفس الخدمة، ومتى ما بغيت تعمّمها على كل مقدمي الخدمة في الحي.</p><button class="btn primary block" data-act="tab" data-k="home">تصفّح مقدمي الخدمة</button>`);
-  const groups = CATS.map(c => ({ c, ps: favs.filter(p => p.cat === c.id) })).filter(g => g.ps.length);
+  const groups = CATS.map(c => ({ c, ps: favs.filter(p => catsOf(p).includes(c.id)) })).filter(g => g.ps.length);
   return groups.map(g => `<section><div class="sec-h"><h2>${g.c.name}</h2><span class="muted sm">${g.ps.length}</span></div><div class="list">${g.ps.map(providerCard).join('')}</div></section>`).join('');
 };
 VIEWS.orders = u => {
@@ -1310,25 +1326,25 @@ function loadMenu(pid) {
 function providerView(id) {
   const p = P(id); if (!p) return empty('المحل غير متاح الآن.');
   const c = CAT(p.cat);
-  const head = `<section class="card"><div class="phead"><span class="pav">${icon(c.icon)}</span><div style="flex:1"><h1>${esc(p.name)}</h1><p class="muted sm">${c.name} · <span class="star">${ratingText(p)}</span></p></div></div>
+  const head = `<section class="card"><div class="phead"><span class="pav">${icon(c.icon)}</span><div style="flex:1"><h1>${esc(p.name)}</h1><p class="muted sm">${catNames(p)} · <span class="star">${ratingText(p)}</span></p></div></div>
     <div class="facts"><div class="fact"><span>الدوام</span><b>${esc(p.hours || '—')}</b></div>
     ${c.visit ? `<div class="fact"><span>الزيارة من</span><b>${p.visitFee ? money(p.visitFee) : 'بعرض'}</b></div>` : `<div class="fact"><span>التوصيل</span><b>${p.delivers ? money(p.deliveryFee) : 'استلام فقط'}</b></div>`}
     <div class="fact"><span>${c.visit ? 'يخدم' : 'أقل طلب'}</span><b>${c.visit ? plural(p.districts.length, 'حي واحد', 'حيّين', 'أحياء') : money(p.minOrder)}</b></div></div>
     ${hasLoc(p.loc) ? `<div class="loc-row"><span class="muted sm">${icon('pin', 'xs')} ${kmBetween(defAddr(), p.loc) != null ? `يبعد عنك ${kmText(kmBetween(defAddr(), p.loc))}` : 'موقع المحل محدد'}</span><a class="btn ghost sm" href="${gmapsDir(p.loc)}" target="_blank" rel="noopener">افتح في الخرائط</a></div>` : ''}
     ${favBtn(p, true)}</section>`;
-  if (!c.hasMenu) return head + card('اكتب طلبك', composeForm('target'));
+  if (!catsOf(p).some(x => CAT(x).hasMenu)) return head + card('اكتب طلبك', composeForm('target'));
   const items = state.menus[id];
   if (!items) { loadMenu(id); return head + card('القائمة', '<div class="spin" role="status" aria-label="جارٍ تحميل القائمة"></div>') }
   const cart = state.cart && state.cart.pid === id ? state.cart.items : {};
   const ordered = [...items.filter(i => i.available), ...items.filter(i => !i.available)];
   const svc = isSvc(p.cat);
-  const row = i => { const q = cart[i.id] || 0, half = halfOK(i, p.cat); return `<div class="item ${i.available ? '' : 'off'}" data-s="${esc(norm(i.name))}"><span class="nm"><b>${esc(i.name)}</b><span class="muted sm num">${svc ? 'يبدأ من ' : ''}${money(i.price)}${half ? ' للكيلو' : ''}</span></span>
-    ${!i.available ? `<span class="tag">${svc ? 'غير متاحة الآن' : 'غير متوفر الآن'}</span>` : q ? `<span class="stepper"><button data-act="qty" data-id="${i.id}" data-d="1" aria-label="زيادة">${icon('plus', 'sm')}</button><b class="num">${fmtQty(q, i, p.cat)}</b><button data-act="qty" data-id="${i.id}" data-d="-1" aria-label="إنقاص">${icon('minus', 'sm')}</button></span>` : `<button class="add1" data-act="qty" data-id="${i.id}" data-d="1">${svc ? 'اطلب' : 'أضف'}</button>`}</div>` };
+  const row = i => { const q = cart[i.id] || 0, half = halfOK(i, itemCat(i, p)); return `<div class="item ${i.available ? '' : 'off'}" data-s="${esc(norm(i.name))}"><span class="nm"><b>${esc(i.name)}</b><span class="muted sm num">${svc ? 'يبدأ من ' : ''}${money(i.price)}${half ? ' للكيلو' : ''}</span></span>
+    ${!i.available ? `<span class="tag">${svc ? 'غير متاحة الآن' : 'غير متوفر الآن'}</span>` : q ? `<span class="stepper"><button data-act="qty" data-id="${i.id}" data-d="1" aria-label="زيادة">${icon('plus', 'sm')}</button><b class="num">${fmtQty(q, i, itemCat(i, p))}</b><button data-act="qty" data-id="${i.id}" data-d="-1" aria-label="إنقاص">${icon('minus', 'sm')}</button></span>` : `<button class="add1" data-act="qty" data-id="${i.id}" data-d="1">${svc ? 'اطلب' : 'أضف'}</button>`}</div>` };
   return head + (items.length ? menuBrowser(p, ordered, row, 'cm') : card(svc ? 'الخدمات' : 'القائمة', `<p class="muted">${svc ? 'الفني يجهّز قائمة خدماته الآن. اكتب له المشكلة تحت.' : 'المحل يجهّز قائمته الآن. تقدر تكتب طلبك له نصياً تحت.'}</p>`)) +
     card('', `<details class="more" ${items.length ? '' : 'open'}><summary>${svc ? 'ما لقيت خدمتك؟ اكتب المشكلة للفني' : 'ما لقيت اللي تبيه؟ اكتبه للمحل'}</summary>${composeForm('target')}</details>`);
 }
 function groupBySec(p, items) {
-  const cat = CATALOG[p.cat]; if (!cat) return [{ id: 'all', name: '', items }];
+  const cat = catalogFor(p); if (!cat) return [{ id: 'all', name: '', items }];
   const known = new Set(cat.sections.map(x => x.id));
   return [...cat.sections, { id: 'other', name: 'أصناف أخرى' }].map(g => ({ ...g, items: items.filter(i => (known.has(i.sec) ? i.sec : 'other') === g.id) })).filter(g => g.items.length);
 }
@@ -1361,7 +1377,7 @@ function checkoutView() {
   const u = me(), c = state.cart; if (!c) return empty('السلة فارغة');
   const p = P(c.pid), m = state.menus[c.pid] || [], t = cartTotals();
   if (!p) return empty('المحل غير متاح الآن.');
-  const rows = Object.entries(c.items).map(([id, q]) => { const it = m.find(x => x.id === id); return it ? `<div class="line"><span>${esc(it.name)} <span class="muted">× ${fmtQty(q, it, p.cat)}</span></span><span class="num">${money(it.price * q)}</span></div>` : '' }).join('');
+  const rows = Object.entries(c.items).map(([id, q]) => { const it = m.find(x => x.id === id); return it ? `<div class="line"><span>${esc(it.name)} <span class="muted">× ${fmtQty(q, it, itemCat(it, p))}</span></span><span class="num">${money(it.price * q)}</span></div>` : '' }).join('');
   if (isSvc(p.cat)) return card(esc(p.name), `<div class="lines">${rows}</div>`) +
     card('الموعد والموقع', `${addrChooser('co', true)}${visitWhen('co')}
     <label class="fld" for="co-note"><span>وصف المشكلة أو ملاحظة للفني (اختياري)</span><textarea id="co-note" data-bind="co.note" rows="2" placeholder="مثال: التسريب تحت مغسلة المطبخ من أمس">${esc(state.co.note)}</textarea></label>`) +
@@ -1418,7 +1434,7 @@ function loadPhoto(id) {
     .finally(() => { const t = state.stack.at(-1); if (t && t.v === 'order' && t.id === id) render() });
 }
 function contentCard(o) {
-  if (o.type === 'menu') return card('الأصناف', `<div class="lines">${o.items.map((i, x) => `<div class="line"><span>${itemLabel(i, o, x)} <span class="muted">× ${fmtQty(i.qty, i, o.cat)}</span></span><span class="num">${money(i.price * i.qty)}</span></div>`).join('')}</div>
+  if (o.type === 'menu') return card('الأصناف', `<div class="lines">${o.items.map((i, x) => `<div class="line"><span>${itemLabel(i, o, x)} <span class="muted">× ${fmtQty(i.qty, i, itemCat(i, { cat: o.cat }))}</span></span><span class="num">${money(i.price * i.qty)}</span></div>`).join('')}</div>
     ${o.text ? `<div class="note">${icon('chat', 'sm')}<span>${showTr(o.text, o.textTr)}</span></div>` : ''}<div class="meta-row">${icon('truck', 'xs')} ${fulfilLabel(o)} · ${icon('clock', 'xs')} ${esc(o.when)}</div>`);
   let ph = '';
   if (o.hasPhoto) { if (state.photos[o.id] === undefined) { loadPhoto(o.id); ph = '<div class="spin" role="status" aria-label="جارٍ تحميل الصورة"></div>' } else if (state.photos[o.id]) ph = `<img class="photo" src="${state.photos[o.id]}" alt="صورة مرفقة بالطلب">` }
@@ -1550,11 +1566,11 @@ VIEWS.p_orders = u => {
   const k = state.sub.p_orders;
   return locNote + seg('p_orders', [['targeted', 'موجّهة لي', targeted.filter(o => !quotedByMe(o)).length], ['open', 'مفتوحة في الحي', open.filter(o => !quotedByMe(o)).length], ['working', 'قيد التنفيذ', working.length], ['done', 'منتهية', 0]]) +
     (k === 'targeted' ? listOr(targeted, 'ما فيه طلبات موجّهة لك الآن. لما يضيفك عميل لمفضلته أو يختارك، تظهر طلباته هنا.')
-      : k === 'open' ? (open.length ? `<p class="muted sm">طلبات ${CAT(u.cat).name} المفتوحة لكل المحلات في أحيائك. أرسل عرضك والعميل يختار.</p>${listOr(open, '')}` : empty('ما فيه طلبات مفتوحة في أحيائك الآن.'))
+      : k === 'open' ? (open.length ? `<p class="muted sm">طلبات ${catNames(u)} المفتوحة في أحيائك. أرسل عرضك والعميل يختار.</p>${listOr(open, '')}` : empty('ما فيه طلبات مفتوحة في أحيائك الآن.'))
         : k === 'working' ? listOr(working, 'ما فيه طلبات قيد التنفيذ.') : listOr(done, 'ما فيه طلبات منتهية بعد.'));
 };
 VIEWS.p_menu = u => {
-  const items = db.menu || [], cat = CATALOG[u.cat], cn = CAT(u.cat).name;
+  const items = db.menu || [], cat = catalogFor(u), cn = catNames(u);
   if (!items.length && cat) return `<section class="card starter"><h2>ابدأ قائمتك في دقيقة</h2>
     <p>جهّزنا لك قائمة ${cn} فيها ${cat.items.length} ${unitWord(u.cat)} في ${cat.sections.length} ${cat.sections.length > 2 ? 'أقسام' : 'قسم'}، ${isSvc(u.cat) ? 'بأسعار تبدأ من مبلغ مقترح تعدّله حسب شغلك. السعر النهائي تحدده عند الانتهاء.' : 'بأسعار مقترحة تقديرية تعدّلها حسب محلك.'}</p>
     <div class="actions"><button class="btn primary block" data-act="addAllCatalog">${icon('plus', 'sm')} أضف القائمة كاملة (${cat.items.length} ${unitWord(u.cat)})</button>
@@ -1581,8 +1597,9 @@ VIEWS.p_income = u => {
     <section><div class="sec-h"><h2>آخر الطلبات المنتهية</h2></div>${listOr(mine.sort(byNew).slice(0, 10), 'ما فيه طلبات منتهية بعد.')}</section>`;
 };
 VIEWS.p_shop = u => {
-  const c = CAT(u.cat);
+  const c = CAT(u.cat), sel = state.shopCats || catsOf(u), k = kindOf(u.cat);
   return card('بيانات المحل', `<form data-form="shop" class="stack">
+    <div class="field-label">خدماتي</div><div class="checks">${CATS.filter(x => kindOf(x.id) === k).map(x => `<label for="sc-${x.id}"><input type="checkbox" id="sc-${x.id}" name="shopCats" value="${x.id}" ${sel.includes(x.id) ? 'checked' : ''}>${x.name}</label>`).join('')}</div>
     <label class="fld" for="s-name"><span>اسم المحل أو الفني</span><input id="s-name" name="name" value="${esc(u.name)}" required></label>
     <label class="fld" for="s-hours"><span>أوقات العمل</span><input id="s-hours" name="hours" value="${esc(u.hours)}" placeholder="مثال: 7 ص – 11 م"></label>
     ${c.visit ? `<label class="fld" for="s-visit"><span>رسم الزيارة (ر.س)</span><input id="s-visit" name="visitFee" type="number" min="0" value="${u.visitFee}"></label>`
@@ -1647,7 +1664,7 @@ VIEWS.a_users = u => {
       acts.push(`<div class="chips">${b.join('')}</div>`);
     }
     const st = { active: 'good', pending: 'info', blocked: 'bad', rejected: 'bad' }[x.status];
-    return `<div class="card" data-s="${esc(norm(x.name + ' ' + x.phone))}"><div class="ohead-top"><div><b>${esc(x.name)}</b><p class="muted sm">${ROLE[x.role]}${x.role === 'provider' ? ` · ${CAT(x.cat).name} · ${x.districts.map(esc).join('، ')}` : x.district ? ` · حي ${esc(x.district)}` : ''}${x.vehicle ? ` · ${esc(x.vehicle)}` : ''}</p>
+    return `<div class="card" data-s="${esc(norm(x.name + ' ' + x.phone))}"><div class="ohead-top"><div><b>${esc(x.name)}</b><p class="muted sm">${ROLE[x.role]}${x.role === 'provider' ? ` · ${catNames(x)} · ${x.districts.map(esc).join('، ')}` : x.district ? ` · حي ${esc(x.district)}` : ''}${x.vehicle ? ` · ${esc(x.vehicle)}` : ''}</p>
       <p class="muted xs">${phone(x.phone)} · ${ago(x.createdAt)}${x.locked ? ' · <b style="color:var(--bad)">مقفل بعد محاولات خاطئة</b>' : ''}</p></div><span class="pill t-${st}">${STATUS_U[x.status]}</span></div>${acts.join('')}</div>`;
   };
   return seg('a_users', [['pending', 'بانتظار الاعتماد', pend.length], ['all', 'الكل', 0]]) +
@@ -1725,19 +1742,19 @@ function sheetHtml() {
       <div class="plist">${ps.map(p => `<button class="pitem" data-act="doAssign" data-p="${p.id}"><span class="who-av">${esc(p.name[0])}</span><span class="pi-txt"><b>${esc(p.name)}</b><small class="muted">${ratingText(p)}</small></span></button>`).join('') || empty('ما فيه مقدمو خدمة في هذا الحي.')}</div>`;
   }
   if (s.type === 'item') {
-    const cat = CATALOG[u.cat], it = s.id ? (db.menu || []).find(m => m.id === s.id) : { name: '', price: '', sec: 'other' };
+    const cat = catalogFor(u), it = s.id ? (db.menu || []).find(m => m.id === s.id) : { name: '', price: '', sec: 'other' };
     h = `<h2>${s.id ? 'تعديل صنف' : 'صنف خاص'}</h2><form data-form="item" class="stack">
       <label class="fld" for="it-name"><span>اسم الصنف</span><input id="it-name" name="name" value="${esc(it?.name)}" required placeholder="مثال: خبز تميس"></label>
       <div class="${cat ? 'row2' : ''}"><label class="fld" for="it-price"><span>السعر (ر.س)</span><input id="it-price" name="price" type="number" min="0" step="0.25" value="${it?.price}" required inputmode="decimal"></label>
       ${cat ? `<label class="fld" for="it-sec"><span>القسم</span><select id="it-sec" name="sec">${[...cat.sections, { id: 'other', name: 'أصناف أخرى' }].map(x => `<option value="${x.id}" ${it?.sec === x.id ? 'selected' : ''}>${x.name}</option>`).join('')}</select></label>` : ''}</div>
-      ${it?.cid && cat ? `<p class="muted xs">السعر المقترح في القائمة الجاهزة: ${money(cat.items.find(c => c.id === it.cid)?.price)}</p>` : ''}
+      ${it?.cid && cat && cat.items.find(c => c.id === it.cid) ? `<p class="muted xs">السعر المقترح في القائمة الجاهزة: ${money(cat.items.find(c => c.id === it.cid)?.price)}</p>` : ''}
       <button class="btn primary block">حفظ</button>${s.id ? `<button type="button" class="btn danger block" data-act="delItem">${icon('trash', 'sm')} حذف الصنف من قائمتي</button>` : ''}</form>`;
   }
   if (s.type === 'catalog') {
-    const cat = CATALOG[u.cat], have = new Set((db.menu || []).filter(i => i.cid).map(i => i.cid));
+    const cat = catalogFor(u), have = new Set((db.menu || []).filter(i => i.cid).map(i => i.cid));
     s.sel = s.sel || []; s.sec = s.sec || 'all';
     const list = cat.items.filter(it => s.sec === 'all' || it.sec === s.sec);
-    h = `<h2>قائمة ${CAT(u.cat).name} الجاهزة</h2><p class="muted sm">حدّد الأصناف المتوفرة عندك. الأسعار مقترحة وتقدر تعدّلها بعد الإضافة.</p>
+    h = `<h2>قائمة ${catNames(u)} الجاهزة</h2><p class="muted sm">حدّد الأصناف المتوفرة عندك. الأسعار مقترحة وتقدر تعدّلها بعد الإضافة.</p>
       <div data-filter-root="cat" class="stack"><label class="search" for="f-cat">${icon('search', 'sm')}<input id="f-cat" data-filter="cat" value="${esc(state.filters.cat || '')}" placeholder="ابحث في ${cat.items.length} صنف" autocomplete="off" aria-label="بحث"></label>
       <div class="chips scroll">${[{ id: 'all', name: 'الكل' }, ...cat.sections].map(x => `<button type="button" class="chip ${s.sec === x.id ? 'on' : ''}" data-act="catSec" data-id="${x.id}">${x.name}</button>`).join('')}</div>
       <div>${list.map(it => { const own = have.has(it.id); return `<label class="cchk" data-s="${esc(norm(it.name + ' ' + itemTrName({ cid: it.id })))}" for="cc-${it.id}"><input type="checkbox" id="cc-${it.id}" name="cid" value="${it.id}" ${own || s.sel.includes(it.id) ? 'checked' : ''} ${own ? 'disabled' : ''}><span class="nm">${itemLabel({ name: it.name, cid: it.id })}${own ? ' <span class="tag">في قائمتك</span>' : ''}</span><span class="muted sm num">${money(it.price)}</span></label>` }).join('')}</div>
@@ -1752,7 +1769,7 @@ function sheetHtml() {
    ============================================================ */
 let toastT;
 function toast(m) { const h = $('#toast-host'); h.innerHTML = `<div class="toast" role="status">${esc(m)}</div>`; clearTimeout(toastT); toastT = setTimeout(() => h.innerHTML = '', 3200) }
-function go(v, id) { state.stack.push({ v, id }); if (v === 'provider') { state.compose.target = id; state.filters.cm = ''; delete state.menus[id] } render(); window.scrollTo(0, 0) }
+function go(v, id) { const prev = state.stack.at(-1); if (v === 'provider' && prev && prev.v === 'category') state.compose.cat = prev.id; state.stack.push({ v, id }); if (v === 'provider') { state.compose.target = id; state.filters.cm = ''; delete state.menus[id] } render(); window.scrollTo(0, 0) }
 function openOrder(id) { state.stack = [{ v: 'order', id }]; state.rate = 5; state.rateText = ''; render(); window.scrollTo(0, 0) }
 const resetCompose = () => { state.compose = { text: '', cat: '', when: 'أقرب وقت', photo: null, target: null, scope: 'fav' } };
 
@@ -1774,7 +1791,7 @@ const ACT = {
     if (d.type === 'catalog') state.filters.cat = ''; state.sheet = { type: d.type, id: d.id ? (['item', 'resetPin', 'addr'].includes(d.type) ? d.id : +d.id) : undefined }; render() },
   close() { state.sheet = null; render() },
   scrim(d, e) { if (e.target.classList.contains('scrim')) { state.sheet = null; render() } },
-  pickcat(d) { state.compose.cat = state.compose.cat === d.id ? '' : d.id; state.compose.scope = 'fav'; render() },
+  pickcat(d) { state.compose.cat = d.keep ? d.id : state.compose.cat === d.id ? '' : d.id; state.compose.scope = 'fav'; render() },
   scope(d) { state.compose.scope = d.k; render() },
   unphoto() { state.compose.photo = null; render() },
   askCat(d) { state.compose.cat = d.id; state.compose.target = null; state.compose.scope = 'fav'; state.stack = []; state.tab = 'home'; render(); window.scrollTo(0, 0); setTimeout(() => $('#c-text')?.focus(), 50) },
@@ -1783,7 +1800,7 @@ const ACT = {
   qty(d) {
     const top = state.stack.at(-1), pid = top?.id, m = state.menus[pid] || [], it = m.find(x => x.id === d.id); if (!it) return;
     if (!state.cart || state.cart.pid !== pid) { if (state.cart && Object.keys(state.cart.items).length) toast('بدأت سلة جديدة من هذا المحل'); state.cart = { pid, items: {} }; state.co = { fulfil: P(pid)?.delivers ? 'delivery' : 'pickup', note: '', when: 'أقرب وقت' } }
-    const step = halfOK(it, P(pid)?.cat) ? 0.5 : 1;
+    const step = halfOK(it, itemCat(it, P(pid))) ? 0.5 : 1;
     const cur = state.cart.items[it.id] || 0;
     const q = !cur && +d.d > 0 ? 1 : Math.round((cur + (+d.d) * step) * 2) / 2; if (q <= 0) delete state.cart.items[it.id]; else state.cart.items[it.id] = q; render();
   },
@@ -1812,8 +1829,8 @@ const ACT = {
   delItem() { const id = state.sheet.id; run('delItem', { itemId: id }, 'حُذف الصنف', () => { state.sheet = null }) },
   catSec(d) { state.sheet.sec = d.id; render() },
   selVisible() { document.querySelectorAll('.sheet .cchk:not([hidden]) input[name=cid]:not(:disabled)').forEach(c => { if (!state.sheet.sel.includes(c.value)) state.sheet.sel.push(c.value) }); render() },
-  addCatalog() { const cat = CATALOG[me().cat], items = cat.items.filter(i => state.sheet.sel.includes(i.id)).map(i => ({ cid: i.id, sec: i.sec, name: i.name, price: i.price })); run('addItems', { items }, j => `أُضيف ${j.added} صنف لقائمتك`, () => { state.sheet = null; state.filters.cat = '' }) },
-  addAllCatalog() { const cat = CATALOG[me().cat]; run('addItems', { items: cat.items.map(i => ({ cid: i.id, sec: i.sec, name: i.name, price: i.price })) }, j => `أُضيف ${j.added} صنف. عدّل الأسعار من زر التعديل`) },
+  addCatalog() { const cat = catalogFor(me()), items = cat.items.filter(i => state.sheet.sel.includes(i.id)).map(i => ({ cid: i.id, sec: i.sec, name: i.name, price: i.price })); run('addItems', { items }, j => `أُضيف ${j.added} صنف لقائمتك`, () => { state.sheet = null; state.filters.cat = '' }) },
+  addAllCatalog() { const cat = catalogFor(me()); run('addItems', { items: cat.items.map(i => ({ cid: i.id, sec: i.sec, name: i.name, price: i.price })) }, j => `أُضيف ${j.added} صنف. عدّل الأسعار من زر التعديل`) },
   toggleSound() { lsSet(LS_SOUND, soundOn() ? 'off' : ''); unlockAudio(); if (soundOn()) chime(true); render() },
   testSound() { unlockAudio(); setTimeout(() => chime(true), 60); try { navigator.vibrate && navigator.vibrate([150, 80, 150]) } catch (e) { } },
   askNotif() { try { Notification.requestPermission().then(p => { toast(p === 'granted' ? 'تفعّلت إشعارات المتصفح' : 'ما تفعّلت الإشعارات. تقدر تسمح بها من إعدادات المتصفح'); render() }) } catch (e) { toast('المتصفح ما يدعم الإشعارات') } },
@@ -1848,6 +1865,11 @@ document.addEventListener('change', e => {
     const b = document.querySelector('[data-act=addCatalog]'); if (b) { b.disabled = !sel.length; b.textContent = `أضف المحدد (${sel.length})` } return;
   }
   if (t.id === 'lang-sel') { run('setLang', { lang: t.value }, `${LANG_NAMES[t.value]} ✓`); return }
+  if (t.name === 'regCats' || t.name === 'shopCats') {
+    const arr = t.name === 'regCats' ? state.reg.cats : (state.shopCats = state.shopCats || [...catsOf(me())]), v = t.value;
+    if (t.checked) { if (arr.length && kindOf(arr[0]) !== kindOf(v)) arr.splice(0, arr.length); if (!arr.includes(v)) arr.push(v) } else arr.splice(arr.indexOf(v), 1);
+    render(); return;
+  }
   if (t.name === 'regDistricts') { const ds = state.reg.districts, v = t.value; if (t.checked) { if (!ds.includes(v)) ds.push(v) } else ds.splice(ds.indexOf(v), 1); return }
   if (t.id === 'c-photo') { const f = t.files && t.files[0]; if (!f) return; shrinkImage(f).then(u => { state.compose.photo = u; render() }).catch(() => toast('تعذّرت قراءة الصورة، جرّب صورة ثانية')) }
 });
@@ -1894,16 +1916,16 @@ const FORMS = {
     if (!/^0?5\d{8}$/.test(digits(r.phone))) { toast('رقم الجوال لازم يبدأ بـ 05 ويتكون من 10 أرقام'); return }
     if (!/^\d{4}$/.test(digits(r.pin))) { toast('الرمز السري 4 أرقام'); return }
     if (digits(r.pin) !== digits(r.pin2)) { toast('الرمزان غير متطابقين'); return }
-    if (r.role === 'provider' && !r.cat) { toast('اختر نوع الخدمة'); return }
+    if (r.role === 'provider' && !r.cats.length) { toast('اختر خدمة واحدة على الأقل'); return }
     if (r.role === 'provider' && !r.districts.length) { toast('اختر حياً واحداً على الأقل'); return }
     const districts = state.config?.districts || [];
-    run('register', { role: r.role, name: r.name.trim(), phone: digits(r.phone), pin: digits(r.pin), district: r.district || districts[0], details: r.details.trim(), cat: r.cat, hours: r.hours.trim(), vehicle: r.vehicle.trim(), districts: r.districts, lang: r.lang },
-      () => me().status === 'active' ? `أهلاً ${me().name}، حسابك جاهز` : 'وصل طلب انضمامك للإدارة', () => { state.boot = 'ready'; state.tab = ''; state.reg = { role: 'customer', name: '', phone: '', pin: '', pin2: '', district: '', details: '', cat: '', hours: '', vehicle: '', districts: [], lang: 'ar' } });
+    run('register', { role: r.role, name: r.name.trim(), phone: digits(r.phone), pin: digits(r.pin), district: r.district || districts[0], details: r.details.trim(), cat: r.cats[0], cats: r.cats, hours: r.hours.trim(), vehicle: r.vehicle.trim(), districts: r.districts, lang: r.lang },
+      () => me().status === 'active' ? `أهلاً ${me().name}، حسابك جاهز` : 'وصل طلب انضمامك للإدارة', () => { state.boot = 'ready'; state.tab = ''; state.reg = { role: 'customer', name: '', phone: '', pin: '', pin2: '', district: '', details: '', cat: '', cats: [], hours: '', vehicle: '', districts: [], lang: 'ar' } });
   },
   'text-order'(f) {
     const c = state.compose, mode = f.dataset.mode, target = mode === 'target' ? c.target : null;
     const text = ($('#c-text').value || '').trim(); c.text = text;
-    const cat = target ? P(target)?.cat : c.cat;
+    const cat = target ? tCat(P(target)) : c.cat;
     if (!text) { toast('اكتب طلبك أول'); $('#c-text').focus(); return }
     if (!cat) { toast('اختر نوع الخدمة'); return }
     const favs = target ? [] : favProviders(cat), useFav = !target && favs.length && c.scope === 'fav';
@@ -1923,7 +1945,8 @@ const FORMS = {
   resetPin(f) { const pin = digits(new FormData(f).get('pin')); if (!/^\d{4}$/.test(pin)) { toast('الرمز 4 أرقام'); return } const id = state.sheet.id; run('resetPin', { userId: id, pin }, 'تم تعيين الرمز الجديد', () => { state.sheet = null }) },
   shop(f) {
     const fd = new FormData(f), ds = fd.getAll('districts'); if (!ds.length) { toast('اختر حياً واحداً على الأقل'); return }
-    run('saveShop', { name: fd.get('name').trim(), hours: fd.get('hours').trim(), districts: ds, visitFee: fd.get('visitFee'), deliveryFee: fd.get('deliveryFee'), minOrder: fd.get('minOrder'), delivers: fd.get('delivers') === 'on', usesCourier: fd.get('usesCourier') === 'on' }, 'حُفظت بيانات المحل');
+    const cats = fd.getAll('shopCats'); if (!cats.length) { toast('اختر خدمة واحدة على الأقل'); return }
+    run('saveShop', { cats, name: fd.get('name').trim(), hours: fd.get('hours').trim(), districts: ds, visitFee: fd.get('visitFee'), deliveryFee: fd.get('deliveryFee'), minOrder: fd.get('minOrder'), delivers: fd.get('delivers') === 'on', usesCourier: fd.get('usesCourier') === 'on' }, 'حُفظت بيانات المحل', () => { state.shopCats = null });
   },
   item(f) {
     const fd = new FormData(f), name = fd.get('name').trim(), price = fd.get('price'); if (!name || price === '') { toast('اكتب الاسم والسعر'); return }
