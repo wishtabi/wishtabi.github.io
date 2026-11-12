@@ -91,6 +91,15 @@ textarea:focus,input:focus,select:focus{border-color:var(--accent)}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
 .chips.scroll{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;margin-inline:-2px;scrollbar-width:none}
 .chips.scroll::-webkit-scrollbar{display:none}
+.hs{position:relative}
+.hs .chips.scroll{scroll-behavior:smooth;padding-bottom:2px}
+.hs-track{height:5px;border-radius:99px;background:var(--line);margin-top:8px;position:relative;overflow:hidden;cursor:pointer}
+.hs-thumb{position:absolute;top:0;bottom:0;inset-inline-start:0;border-radius:99px;background:var(--accent);opacity:.75;transition:inset-inline-start .08s linear}
+.hs-arr{position:absolute;top:0;height:38px;width:34px;border:0;display:grid;place-items:center;cursor:pointer;color:var(--ink);z-index:2;padding:0}
+.hs-arr span{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--surface);box-shadow:var(--shadow);font-size:18px;font-weight:800;line-height:1}
+.hs-arr.next{inset-inline-end:-4px;background:linear-gradient(to left,var(--surface) 55%,transparent)}
+.hs-arr.prev{inset-inline-start:-4px;background:linear-gradient(to right,var(--surface) 55%,transparent)}
+.hs-arr[hidden]{display:none}
 .chip{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:14px}
 .chip.on{background:var(--navy);color:var(--on-navy);border-color:var(--navy)}
 .target{display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:var(--info-soft);border-radius:12px;padding:9px 12px;font-size:14px}
@@ -1137,7 +1146,7 @@ function render() {
   const top = state.stack.at(-1);
   const strip = db.settings.trial ? `<div class="strip">فترة تجريبية · بدون عمولة حتى ${esc(db.settings.trialEnds)}</div>` : '';
   app.innerHTML = header(u, top) + strip + `<main class="main" id="main">${body(u, top)}</main>` + (top ? '' : nav(u)) + cartBar(top) + sheetHtml();
-  applyFilters(); initMaps(); locStatus();
+  applyFilters(); hscrolls(); initMaps(); locStatus();
   if (state.autoLocate && document.querySelector('[data-map]')) { state.autoLocate = false; setTimeout(locateMe, 300) }
 }
 function header(u, top) {
@@ -1355,6 +1364,30 @@ function menuBrowser(p, items, row, key) {
   const tools = `<div class="menu-tools"><label class="search" for="f-${key}">${icon('search', 'sm')}<input id="f-${key}" data-filter="${key}" value="${esc(state.filters[key] || '')}" placeholder="ابحث في ${items.length} ${unitWord(p.cat)}" autocomplete="off" aria-label="بحث في الأصناف"></label>
     ${groups.length > 1 ? `<div class="chips scroll">${groups.map(g => `<button type="button" class="chip" data-act="jump" data-id="${key}-${g.id}">${key === 'pm' ? secLabel(g) : g.name}</button>`).join('')}</div>` : ''}</div>`;
   return `<div data-filter-root="${key}" class="stack">${tools}${groups.map(g => `<section class="card msec fgroup" id="${key}-${g.id}">${g.name ? `<div class="msec-h"><h3>${key === 'pm' ? secLabel(g) : g.name}</h3><span class="muted xs">${g.items.length} ${unitWord(p.cat)}</span></div>` : ''}<div>${g.items.map(row).join('')}</div></section>`).join('')}<div class="empty fempty" hidden>ما لقينا ${unitWord(p.cat)} بهذا الاسم.</div></div>`;
+}
+function hscrolls() {
+  document.querySelectorAll('.chips.scroll').forEach(el => {
+    if (el.parentElement.classList.contains('hs')) return;
+    const w = document.createElement('div'); w.className = 'hs'; el.before(w); w.appendChild(el);
+    w.insertAdjacentHTML('beforeend', '<button type="button" class="hs-arr prev" aria-label="السابق" hidden><span>›</span></button><button type="button" class="hs-arr next" aria-label="المزيد" hidden><span>‹</span></button><div class="hs-track" aria-hidden="true"><div class="hs-thumb"></div></div>');
+    const th = w.querySelector('.hs-thumb'), tr = w.querySelector('.hs-track'), pv = w.querySelector('.prev'), nx = w.querySelector('.next');
+    const rtl = getComputedStyle(el).direction === 'rtl', sgn = rtl ? -1 : 1;
+    const upd = () => {
+      const max = el.scrollWidth - el.clientWidth;
+      if (max <= 2) { tr.hidden = pv.hidden = nx.hidden = true; return }
+      tr.hidden = false;
+      const pos = Math.min(1, Math.abs(el.scrollLeft) / max), sz = el.clientWidth / el.scrollWidth;
+      th.style.width = (sz * 100) + '%'; th.style.insetInlineStart = (pos * (1 - sz) * 100) + '%';
+      pv.hidden = pos < 0.02; nx.hidden = pos > 0.98;
+    };
+    el.addEventListener('scroll', upd, { passive: true });
+    nx.onclick = () => el.scrollBy({ left: sgn * el.clientWidth * 0.7 });
+    pv.onclick = () => el.scrollBy({ left: -sgn * el.clientWidth * 0.7 });
+    tr.onclick = e => { const r = tr.getBoundingClientRect(), f = rtl ? (r.right - e.clientX) / r.width : (e.clientX - r.left) / r.width; el.scrollLeft = sgn * f * (el.scrollWidth - el.clientWidth) };
+    const on = el.querySelector('.chip.on');
+    if (on) { el.style.scrollBehavior = 'auto'; const a = on.getBoundingClientRect(), b = el.getBoundingClientRect(); if (a.left < b.left || a.right > b.right) el.scrollLeft += (a.left + a.width / 2) - (b.left + b.width / 2); el.style.scrollBehavior = '' }
+    upd();
+  });
 }
 function applyFilters() {
   document.querySelectorAll('[data-filter]').forEach(inp => {
