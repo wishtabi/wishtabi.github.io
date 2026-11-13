@@ -1724,7 +1724,7 @@ VIEWS.p_income = u => {
     <div class="tile"><span>تقييمك</span><b class="num">${u.ratingCount ? avg(u).toFixed(1) : '—'}</b><small>من ${u.ratingCount} تقييم</small></div>
     <div class="tile"><span>العمولة المستحقة</span><b class="num">${money(comm)}</b><small>${db.settings.trial ? 'مجانية في التجربة' : 'للمنصة والمنسّق'}</small></div></div>
     ${due.length ? `<section class="duebox"><h3>${icon('wallet', 'sm')} مبالغ آجلة على العملاء: <span class="num">${money(due.reduce((s, o) => s + o.total, 0))}</span></h3><div class="lines">${groupBy(due, o => o.customerName).map(([n, a]) => `<div class="line"><span>${esc(n)} <span class="muted">(${plural(a.length, 'طلب', 'طلبان', 'طلبات')})</span></span><b class="num">${money(a.reduce((s, o) => s + o.total, 0))}</b></div>`).join('')}</div><p class="xs" style="margin:8px 0 0">افتح الطلب واضغط «تم السداد» لما تستلم المبلغ.</p></section>` : ''}
-    <section><div class="sec-h"><h2>آخر الطلبات المنتهية</h2></div>${listOr(mine.sort(byNew).slice(0, 15), 'ما فيه طلبات منتهية بعد.')}</section>`;
+    <section><div class="sec-h"><h2>الطلبات المنتهية حسب العميل</h2></div>${groupedOrders(mine, o => o.customerId, o => o.customerName, 'ما فيه طلبات منتهية في هذه الفترة.')}</section>`;
 };
 VIEWS.p_shop = u => {
   const c = CAT(u.cat), sel = state.shopCats || catsOf(u), k = kindOf(u.cat);
