@@ -1523,7 +1523,7 @@ function stepper(o) {
   const rank = { new: 0, accepted: 2, in_progress: 3, with_courier: 4, delivered: 5, closed: 6 }[o.status] ?? 0;
   const steps = [{ l: 'طلب جديد', d: true }];
   if (o.brokerId) steps.push({ l: 'إسناد من المنسّق', d: true });
-  if (o.type === 'text') steps.push({ l: 'عرض سعر', d: !!o.acceptedQuote });
+  if (o.type === 'text' && !o.direct && !(o.status === 'new' && o.targetCount && !o.brokerId)) steps.push({ l: 'عرض سعر', d: !!o.acceptedQuote });
   steps.push({ l: 'مقبول', d: rank >= 2 }, { l: 'قيد التنفيذ', d: rank >= 3 });
   if (o.needsCourier) steps.push({ l: 'مع المندوب', d: rank >= 4 });
   steps.push({ l: o.pay === 'later' ? 'تم التسليم' : 'تم التسليم والدفع', d: rank >= 5 }, { l: 'مُقيَّم ومغلق', d: rank >= 6 });
@@ -1557,6 +1557,7 @@ function contentCard(o) {
 function quotesCard(o) {
   const u = me();
   if (u.role === 'customer') {
+    if (o.targetCount && !o.brokerId && !o.quotes.length) return card('بانتظار القبول', `<p class="muted">وصل طلبك إلى ${o.targetCount === 1 ? esc(o.targetNames[0]) : `${o.targetCount} من مفضلتك، وأول من يقبل منهم يبدأ التنفيذ`}. ما فيه عروض أسعار هنا: مقدم الخدمة يسجّل المبلغ عند التسليم.</p>`);
     if (!o.quotes.length) return card('عروض الأسعار', `<p class="muted">${o.targetCount ? `وصل طلبك إلى ${o.targetCount === 1 ? esc(o.targetNames[0]) : `${o.targetCount} من مفضلتك`}، والعروض تظهر هنا أول ما توصل.` : 'وصل طلبك لمقدمي الخدمة في الحي، والعروض تظهر هنا أول ما توصل.'}</p>`);
     const qs = [...o.quotes].sort((a, b) => a.price - b.price);
     return card(`عروض الأسعار (${qs.length})`, `<div class="quotes">${qs.map((q, i) => {
@@ -1569,6 +1570,9 @@ function quotesCard(o) {
   if (u.role === 'provider') {
     const mine = o.quotes.find(q => q.pid === u.id);
     if (mine) return card('عرضك', `<div class="lines"><div class="line"><span>السعر</span><b class="num">${money(mine.price)}</b></div><div class="line"><span>الموعد</span><span>${esc(mine.when)}</span></div></div><p class="muted sm">بانتظار رد العميل${o.quoteCount > 1 ? `، ووصلته ${o.quoteCount} عروض` : ''}.</p>`);
+    if (o.type === 'text' && o.status === 'new' && !o.providerId && o.targetCount && o.targetedToMe && !o.brokerId)
+      return card('طلب من عميل يفضّلك', `<p class="sm">${esc(o.customerName)} وجّه الطلب لك${o.targetCount > 1 ? ` ولـ${o.targetCount - 1} من مفضلته، وأول من يقبل يأخذه` : ''}. ما يحتاج عرض سعر: اقبل ونفّذ، و${CAT(o.cat).visit ? 'سجّل السعر' : 'سجّل المبلغ'} عند التسليم.</p>
+        <div class="pair">${`<button class="btn primary block" data-act="accept" data-id="${o.id}">اقبل الطلب</button><button class="btn danger block" data-act="reject" data-id="${o.id}">اعتذار</button>`}</div>`);
     if (o.type === 'text' && o.status === 'new' && !o.providerId) {
       const visit = CAT(o.cat).visit;
       return card('أرسل عرض سعر', `<form data-form="quote" data-id="${o.id}" class="stack">
@@ -1585,7 +1589,7 @@ function quotesCard(o) {
   return '';
 }
 function totalsCard(o) {
-  if (!o.subtotal) return '';
+  if (!o.subtotal) return o.direct && !['cancelled', 'rejected'].includes(o.status) ? card('', `<div class="note">${icon('wallet', 'sm')}<span>طلب من المفضلة بدون عرض سعر: ${me().id === o.providerId ? 'تسجّل' : 'مقدم الخدمة يسجّل'} المبلغ عند التسليم.${o.pay === 'later' ? ' الدفع آجل.' : ''}</span></div>`) : '';
   const u = me(), done = ['delivered', 'closed'].includes(o.status), f = done ? { platform: o.platformFee, broker: o.brokerFee } : fees(o);
   const showComm = ['provider', 'admin', 'broker'].includes(u.role);
   const visitOpen = o.fulfil === 'visit' && !['delivered', 'closed'].includes(o.status) && o.type === 'menu';
@@ -1617,19 +1621,21 @@ function actionsCard(o) {
     if (o.status === 'new' && o.type === 'menu') b.push(`<div class="pair">${btn('accept', 'اقبل الطلب')}${btn('reject', 'اعتذار', 'danger')}</div>`);
     if (o.status === 'accepted') b.push(btn('start', o.type === 'menu' ? 'ابدأ تجهيز الطلب' : 'ابدأ التنفيذ', 'dark'));
     if (o.status === 'in_progress') {
-      if (o.needsCourier) {
+      if (o.needsCourier && o.direct && !(o.total > 0)) b.push(btn('sheet', `${icon('wallet', 'sm')} سجّل مبلغ الطلب قبل طلب المندوب`, 'dark', 'data-type="final" data-k="price"'));
+      else if (o.needsCourier) {
         if (!o.courierRequested) b.push(btn('requestCourier', `${icon('truck', 'sm')} الطلب جاهز، اطلب مندوب`, 'dark'));
         else if (!o.courierId) b.push(`<div class="note info">${icon('truck', 'sm')} طلبنا مندوب، وننتظر أحد يقبل المهمة.</div>`);
         else b.push(`<div class="note info">${icon('truck', 'sm')} ${esc(o.courierName)} في الطريق لاستلام الطلب.</div>`);
       } else if (o.fulfil === 'visit') b.push(btn('sheet', 'تم تنفيذ الخدمة · سجّل السعر النهائي', 'good', 'data-type="final"'));
-      else b.push(btn('complete', `تم التسليم واستلمت ${money(o.total)}`, 'good'));
+      else if (o.direct) b.push(btn('sheet', `تم التسليم · سجّل المبلغ${o.pay === 'later' ? ' (آجل)' : ''}`, 'good', 'data-type="final"'));
+      else b.push(btn('complete', o.pay === 'later' ? `تم التسليم · ${money(o.total)} آجل` : `تم التسليم واستلمت ${money(o.total)}`, 'good'));
     }
     if (o.status === 'with_courier') b.push(`<div class="note info">${icon('truck', 'sm')} الطلب مع ${esc(o.courierName)} في الطريق للعميل.</div>`);
   }
   if (u.role === 'courier') {
     if (availTask(o)) b.push(btn('courierTake', `اقبل المهمة · ربحك ${money(o.deliveryFee)}`));
     if (o.courierId === u.id && o.status === 'in_progress') b.push(btn('courierPicked', `استلمت الطلب من ${esc(o.providerName)}`, 'dark'));
-    if (o.courierId === u.id && o.status === 'with_courier') b.push(btn('complete', `سلّمت الطلب وحصّلت ${money(o.total)}`, 'good'));
+    if (o.courierId === u.id && o.status === 'with_courier') b.push(btn('complete', o.pay === 'later' ? `سلّمت الطلب · ${money(o.total)} آجل` : `سلّمت الطلب وحصّلت ${money(o.total)}`, 'good'));
   }
   if (u.role === 'broker' && o.status === 'new' && !o.providerId) b.push(btn('sheet', `${icon('link', 'sm')} تولَّ الطلب وأسنده لمقدم خدمة`, 'primary', 'data-type="assign"'));
   if (u.role === 'admin' && ACTIVE.includes(o.status)) b.push(btn('sheet', 'إلغاء الطلب من الإدارة', 'danger', 'data-type="cancel"'));
@@ -1846,12 +1852,18 @@ function sheetHtml() {
         ${s.id && myAddrs().length > 1 ? `<button type="button" class="btn danger block" data-act="delAddr">${icon('trash', 'sm')} حذف العنوان</button>` : ''}
       </form>`;
   }
-  if (s.type === 'final') {
+  if (s.type === 'final' && O(s.id)?.direct && O(s.id)?.fulfil !== 'visit') {
+    const o = O(s.id), pre = s.k === 'price';
+    h = `<h2>${pre ? 'مبلغ الطلب' : 'تسليم الطلب'} #${s.id}</h2><p class="muted sm">${pre ? 'سجّل المبلغ عشان يحصّله المندوب من العميل.' : o.pay === 'later' ? 'سجّل مبلغ الطلب. <b style="color:var(--bad)">الدفع آجل</b>، فيُسجَّل على العميل حتى يسدّده.' : 'سجّل مبلغ الطلب اللي استلمته من العميل.'}</p>
+      <form data-form="final" class="stack"><label class="fld" for="fn-amt"><span>المبلغ الإجمالي (ر.س)</span><input id="fn-amt" name="amount" type="number" min="0.5" step="0.5" inputmode="decimal" required value="${o.total || ''}"></label>
+      <label class="fld" for="fn-note"><span>تفاصيل للعميل (اختياري)</span><input id="fn-note" name="note" placeholder="مثال: خبز 2 + حليب 3 + التوصيل"></label>
+      <button class="btn good block">${pre ? 'حفظ المبلغ' : o.pay === 'later' ? 'تم التسليم · المبلغ آجل' : 'تم التسليم واستلمت المبلغ'}</button></form>`;
+  } else if (s.type === 'final') {
     const o = O(s.id);
-    h = `<h2>إنهاء الخدمة #${s.id}</h2><p class="muted sm">سجّل المبلغ اللي اتفقت عليه مع العميل واستلمته. ${o && o.total ? `التقدير المبدئي كان ${money(o.total)}.` : ''}</p>
+    h = `<h2>إنهاء الخدمة #${s.id}</h2><p class="muted sm">سجّل المبلغ اللي اتفقت عليه مع العميل${o && o.pay === 'later' ? '. <b style="color:var(--bad)">الدفع آجل</b>، فيُسجَّل المبلغ على العميل حتى يسدّده.' : ' واستلمته.'} ${o && o.total ? `التقدير المبدئي كان ${money(o.total)}.` : ''}</p>
       <form data-form="final" class="stack"><label class="fld" for="fn-amt"><span>السعر النهائي (ر.س)</span><input id="fn-amt" name="amount" type="number" min="1" step="1" inputmode="numeric" required value="${o ? o.total || '' : ''}"></label>
       <label class="fld" for="fn-note"><span>سبب الفرق أو تفاصيل الشغل (اختياري)</span><input id="fn-note" name="note" placeholder="مثال: تم تغيير المحبس وقطعة إضافية"></label>
-      <button class="btn good block">تم التنفيذ واستلمت المبلغ</button></form>`;
+      <button class="btn good block">${o && o.pay === 'later' ? 'تم التنفيذ · المبلغ آجل' : 'تم التنفيذ واستلمت المبلغ'}</button></form>`;
   }
   if (s.type === 'shopLoc') h = `<h2>موقع المحل</h2><p class="muted sm">وقف عند باب المحل واضغط "موقعي الحالي"، أو اسحب الخريطة لين يصير الدبوس على المحل.</p>${mapPicker()}<button class="btn primary block" data-act="saveShopLoc">حفظ الموقع</button>`;
   if (s.type === 'pin') h = `<h2>تغيير الرمز السري</h2><form data-form="pin" class="stack">
@@ -1912,7 +1924,7 @@ const ACT = {
   open(d) { if (d.v === 'order') { state.rate = 5; state.rateText = '' } go(d.v, d.v === 'order' ? +d.id : d.id) },
   back() { const t = state.stack.pop(); if (t && t.v === 'provider') state.compose.target = null; render() },
   sheet(d) {
-    if (d.type === 'final') { state.sheet = { type: 'final', id: +d.id }; render(); return }
+    if (d.type === 'final') { state.sheet = { type: 'final', id: +d.id, k: d.k || '' }; render(); return }
     if (d.type === 'addr') { const a = d.id ? myAddrs().find(x => x.id === d.id) : null; state.addrForm = a ? { label: a.label, district: a.district, details: a.details || '', nat: a.nat || '', lat: a.lat, lng: a.lng } : { label: myAddrs().length ? 'العمل' : 'البيت', district: defAddr()?.district || db.settings.districts[0], details: '', nat: '', lat: null, lng: null }; state.locForm = state.addrForm; state.autoLocate = !hasLoc(state.addrForm) }
     if (d.type === 'shopLoc') { state.locForm = { lat: me().loc?.lat || null, lng: me().loc?.lng || null }; state.autoLocate = !hasLoc(state.locForm) }
     if (d.type === 'catalog') state.filters.cat = ''; state.sheet = { type: d.type, id: d.id ? (['item', 'resetPin', 'addr'].includes(d.type) ? d.id : +d.id) : undefined }; render() },
@@ -1950,7 +1962,7 @@ const ACT = {
   requestCourier(d) { run('requestCourier', { id: d.id }, 'طلبنا مندوب، والمهمة ظاهرة للمندوبين') },
   courierTake(d) { run('courierTake', { id: d.id }, 'المهمة لك. توجّه للمحل واستلم الطلب') },
   courierPicked(d) { run('courierPicked', { id: d.id }, 'استلمت الطلب. العميل يعرف إنك في الطريق') },
-  complete(d) { run('complete', { id: d.id }, 'تم تسجيل التسليم والتحصيل') },
+  complete(d) { run('complete', { id: d.id }, O(d.id)?.pay === 'later' ? 'تم تسجيل التسليم، والمبلغ آجل' : 'تم تسجيل التسليم والتحصيل') },
   openToAll(d) { run('openToAll', { id: d.id }, 'عمّمت الطلب على كل مقدمي الخدمة في الحي') },
   star(d) { state.rate = +d.n; render() },
   rate(d) { run('rate', { id: d.id, stars: state.rate, comment: state.rateText.trim() }, 'شكراً على تقييمك', () => { state.rateText = '' }) },
@@ -2029,7 +2041,9 @@ function shrinkImage(file) {
 const FORMS = {
   final(f) {
     const fd = new FormData(f), amt = +fd.get('amount'); if (!(amt > 0)) { toast('اكتب المبلغ'); return }
-    const id = state.sheet.id; run('complete', { id, finalTotal: amt, priceNote: (fd.get('note') || '').trim() }, `تم تسجيل التنفيذ بمبلغ ${money(amt)}`, () => { state.sheet = null });
+    const id = state.sheet.id, note = (fd.get('note') || '').trim();
+    if (state.sheet.k === 'price') run('setPrice', { id, amount: amt, priceNote: note }, `تم تسجيل المبلغ ${money(amt)}`, () => { state.sheet = null });
+    else run('complete', { id, finalTotal: amt, priceNote: note }, `تم التسليم بمبلغ ${money(amt)}`, () => { state.sheet = null });
   },
   addr(f) {
     const a = state.addrForm, id = state.sheet.id;
