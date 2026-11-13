@@ -145,6 +145,16 @@ textarea:focus,input:focus,select:focus{border-color:var(--accent)}
 .ocard-meta{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted)}
 .ocard-meta b{color:var(--ink);font-size:14px}
 .tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag.bad{background:var(--bad-soft);color:var(--bad)}
+.ocard.due{border-inline-start-color:var(--bad);background:linear-gradient(to left,var(--bad-soft),var(--surface) 38%)}
+.ocard .orow{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted)}
+.ocard .orow .amt{display:flex;align-items:center;gap:6px;white-space:nowrap;flex:none}
+.ocard .orow>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ocard .orow b{color:var(--ink);font-size:14.5px}
+.ocard .ocard-sum.one{-webkit-line-clamp:1;font-size:13px}
+.duebox{border:1.5px solid var(--bad-soft);background:var(--bad-soft);color:var(--bad);border-radius:var(--r);padding:12px 14px}
+.duebox .line{color:var(--ink)}
+.duebox h3{margin:0 0 6px;font-size:15px;color:var(--bad)}
 .tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;background:var(--bg);color:var(--muted)}
 .tag.accent{background:var(--accent-soft);color:var(--accent)}
 .tag.good{background:var(--good-soft);color:var(--good)}
@@ -412,6 +422,7 @@ IC.logout = '<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h10"/>';
 IC.key = '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>';
 IC.refresh = '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>';
 IC.users = '<circle cx="9" cy="8" r="3.5"/><path d="M3 20c1-3.5 3.5-5.5 6-5.5s5 2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5c2.5 0 4.2 1.8 5 4.5"/>';
+IC.check = '<path d="M5 12.5l4.5 4.5L19 7"/>';
 const icon = (n, c = '') => `<svg class="ic ${c}" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 const LOGO = `<span class="logo" aria-label="وش تبي"><span>وش تبي</span><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3 6a4 4 0 0 1 4-4h14a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4h-7l-6 5v-5H7a4 4 0 0 1-4-4z" fill="#EB8420"/><text x="14" y="16.5" text-anchor="middle" font-size="15" font-weight="800" fill="#fff" font-family="Tajawal,sans-serif">؟</text></svg></span>`;
 
@@ -1163,9 +1174,21 @@ function body(u, top) {
 }
 const card = (title, inner, cls = '') => `<section class="card ${cls}">${title ? `<h3 class="card-h">${title}</h3>` : ''}${inner}</section>`;
 const empty = t => `<div class="empty">${t}</div>`;
-const seg = (key, opts) => `<div class="seg" role="tablist">${opts.map(([k, l, n]) => `<button role="tab" aria-selected="${state.sub[key] === k}" class="${state.sub[key] === k ? 'on' : ''}" data-act="sub" data-key="${key}" data-k="${k}">${l}${n ? ` <span class="cnt">${n}</span>` : ''}</button>`).join('')}</div>`;
+const seg = (key, opts) => `<div class="seg" role="tablist">${opts.map(([k, l, n, tip]) => `<button role="tab"${tip ? ` title="${esc(tip)}"` : ''} aria-selected="${state.sub[key] === k}" class="${state.sub[key] === k ? 'on' : ''}" data-act="sub" data-key="${key}" data-k="${k}">${l}${n ? ` <span class="cnt">${n}</span>` : ''}</button>`).join('')}</div>`;
 const listOr = (arr, txt) => arr.length ? `<div class="list">${arr.map(orderCard).join('')}</div>` : empty(txt);
-function pill(o) { const s = ST[o.status]; const l = o.status === 'new' && !o.providerId ? (o.targetCount && me().role === 'customer' ? 'بانتظار المختارين' : 'مفتوح') : s.l; return `<span class="pill t-${s.t}">${l}</span>` }
+const payState = o => o.pay === 'later' ? (o.paidAt ? 'paid' : 'due') : (['delivered', 'closed'].includes(o.status) ? 'paid' : o.status === 'cancelled' || o.status === 'rejected' ? '' : 'cod');
+const isDue = o => payState(o) === 'due' && !['cancelled', 'rejected'].includes(o.status);
+function payTag(o) {
+  const ps = payState(o);
+  if (o.status === 'cancelled' || o.status === 'rejected') return '';
+  if (ps === 'due') return '<span class="tag bad">آجل</span>';
+  if (ps === 'paid') return '<span class="tag good">مدفوع</span>';
+  return '<span class="tag">عند الاستلام</span>';
+}
+function dtText(t) { const d = new Date(t); const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']; let h = d.getHours(); const pm = h >= 12; h = h % 12 || 12; return `${days[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1} · ${h}:${String(d.getMinutes()).padStart(2, '0')} ${pm ? 'م' : 'ص'}` }
+const groupBy = (arr, f) => { const m = new Map(); arr.forEach(o => { const k = f(o) || '—'; m.set(k, (m.get(k) || []).concat(o)) }); return [...m.entries()] };
+const custNames = arr => [...new Set(arr.map(o => o.customerName).filter(Boolean))].join('، ');
+function pill(o) { const s = ST[o.status]; const l = o.status === 'new' && !o.providerId ? (o.targetCount && me().role === 'customer' ? 'بانتظار المختارين' : 'مفتوح') : o.status === 'delivered' && isDue(o) ? 'تم التسليم' : s.l; return `<span class="pill t-${s.t}">${l}</span>` }
 
 /* ---------- setup + auth ---------- */
 function setupView() {
@@ -1228,10 +1251,11 @@ function orderCard(o) {
   if (availTask(o)) tags.push('<span class="tag accent">بانتظار مندوب</span>');
   if (o.status === 'delivered' && u.role === 'customer') tags.push('<span class="tag accent">قيّم الخدمة</span>');
   if (o.brokerId && u.role !== 'customer') tags.push('<span class="tag">عبر منسّق</span>');
-  return `<button class="ocard t-${ST[o.status].t}" data-act="open" data-v="order" data-id="${o.id}">
+  const pt = payTag(o), amt = o.total || o.subtotal;
+  return `<button class="ocard t-${ST[o.status].t}${isDue(o) ? ' due' : ''}" data-act="open" data-v="order" data-id="${o.id}">
     <span class="ocard-top"><span class="ocard-title"><span class="ocat">${icon(cat.icon, 'sm')}</span><b>${esc(title)}</b></span>${pill(o)}</span>
-    <span class="ocard-sum" dir="auto">${esc(sum)}</span>
-    <span class="ocard-meta"><span>#${o.id} · ${esc(o.address.district)} · ${ago(o.createdAt)}</span>${o.total ? `<b class="num">${money(o.total)}</b>` : ''}</span>
+    ${o.status === 'new' && sum ? `<span class="ocard-sum one" dir="auto">${esc(sum)}</span>` : ''}
+    <span class="orow"><span class="num">${dtText(o.createdAt)}</span><span class="amt">${pt}${amt ? `<b class="num">${money(amt)}</b>` : ''}</span></span>
     ${tags.length ? `<span class="tags">${tags.join('')}</span>` : ''}</button>`;
 }
 const favBtn = (p, big) => me().role !== 'customer' ? '' : big
@@ -1272,6 +1296,7 @@ function composeForm(mode) {
       ${(t ? CAT(t.cat).visit : c.cat && CAT(c.cat).visit) ? '<span></span>' : `<label class="sel" for="c-when">${icon('clock', 'sm')}<select id="c-when" data-bind="compose.when" aria-label="الموعد المناسب">${WHENS.map(w => `<option ${c.when === w ? 'selected' : ''}>${w}</option>`).join('')}</select></label>`}
       <label class="btn ghost file" for="c-photo">${icon('camera', 'sm')} ${c.photo ? 'تغيير الصورة' : 'إرفاق صورة'}<input type="file" accept="image/*" id="c-photo" hidden></label>
     </div>
+    ${payPick('compose')}
     ${c.photo ? `<div class="thumb"><img src="${c.photo}" alt="الصورة المرفقة"><button type="button" class="x" data-act="unphoto" aria-label="حذف الصورة">${icon('x', 'sm')}</button></div>` : ''}
     <button class="btn primary block" type="submit">${icon('send', 'sm')} ${label}</button>
   </form>`;
@@ -1302,7 +1327,9 @@ VIEWS.favs = u => {
 VIEWS.orders = u => {
   const mine = db.orders.filter(o => o.customerId === u.id).sort(byNew);
   const cur = mine.filter(o => ACTIVE.includes(o.status) || o.status === 'delivered'), past = mine.filter(o => !cur.includes(o));
-  return seg('orders', [['current', 'الحالية', cur.length], ['past', 'السابقة', 0]]) + (state.sub.orders === 'current' ? listOr(cur, 'ما عندك طلبات جارية. اكتب "وش تبي" في الرئيسية وأرسل طلبك.') : listOr(past, 'ما فيه طلبات سابقة بعد.'));
+  const due = mine.filter(o => isDue(o) && ['delivered', 'closed'].includes(o.status)), dueSum = due.reduce((s, o) => s + o.total, 0);
+  return (due.length ? `<div class="duebox"><h3>${icon('wallet', 'sm')} عليك مبالغ آجلة: <span class="num">${money(dueSum)}</span></h3><div class="lines">${groupBy(due, o => o.providerName).map(([n, a]) => `<div class="line"><span>${esc(n)} <span class="muted">(${plural(a.length, 'طلب', 'طلبان', 'طلبات')})</span></span><b class="num">${money(a.reduce((s, o) => s + o.total, 0))}</b></div>`).join('')}</div></div>` : '') +
+    seg('orders', [['current', 'الحالية', cur.length], ['past', 'السابقة', 0]]) + (state.sub.orders === 'current' ? listOr(cur, 'ما عندك طلبات جارية. اكتب "وش تبي" في الرئيسية وأرسل طلبك.') : listOr(past, 'ما فيه طلبات سابقة بعد.'));
 };
 VIEWS.account = u => `
   ${card('بياناتي', `<form data-form="profile" class="stack">
@@ -1408,6 +1435,10 @@ function cartBar(top) {
   const t = cartTotals(); if (!t.count) return '';
   return `<button class="cartbar" data-act="open" data-v="checkout"><span>${isSvc(P(top.id)?.cat) ? 'متابعة الحجز' : 'متابعة الطلب'} <span class="cnt">${t.count}</span></span><span class="num">${money(t.subtotal)}</span></button>`;
 }
+const payPick = key => `<div class="field-label">طريقة الدفع</div><div class="seg">
+  <button type="button" class="${state[key].pay !== 'later' ? 'on' : ''}" data-act="payMode" data-key="${key}" data-k="now">${icon('wallet', 'xs')} عند الاستلام</button>
+  <button type="button" class="${state[key].pay === 'later' ? 'on' : ''}" data-act="payMode" data-key="${key}" data-k="later">آجل</button></div>
+  ${state[key].pay === 'later' ? '<p class="xs" style="color:var(--bad);margin:4px 2px 0">يُسجَّل المبلغ عليك آجلاً، ويبقى معلّماً بالأحمر حتى يؤكد مقدم الخدمة السداد.</p>' : ''}`;
 function checkoutView() {
   const u = me(), c = state.cart; if (!c) return empty('السلة فارغة');
   const p = P(c.pid), m = state.menus[c.pid] || [], t = cartTotals();
@@ -1415,9 +1446,10 @@ function checkoutView() {
   const rows = Object.entries(c.items).map(([id, q]) => { const it = m.find(x => x.id === id); return it ? `<div class="line"><span>${esc(it.name)} <span class="muted">× ${fmtQty(q, it, itemCat(it, p))}</span></span><span class="num">${money(it.price * q)}</span></div>` : '' }).join('');
   if (isSvc(p.cat)) return card(esc(p.name), `<div class="lines">${rows}</div>`) +
     card('الموعد والموقع', `${addrChooser('co', true)}${visitWhen('co')}
+    ${payPick('co')}
     <label class="fld" for="co-note"><span>وصف المشكلة أو ملاحظة للفني (اختياري)</span><textarea id="co-note" data-bind="co.note" rows="2" placeholder="مثال: التسريب تحت مغسلة المطبخ من أمس">${esc(state.co.note)}</textarea></label>`) +
     card('', `<div class="lines"><div class="line total"><span>التقدير المبدئي</span><span class="num">${money(t.subtotal)}</span></div></div>
-    <div class="note info">${icon('wallet', 'sm')}<span>الأسعار تبدأ من المبلغ الموضح، والسعر النهائي يتفق عليه الفني معك في الموقع ويسجّله عند الانتهاء. الدفع بعد التنفيذ.</span></div>
+    <div class="note info">${icon('wallet', 'sm')}<span>الأسعار تبدأ من المبلغ الموضح، والسعر النهائي يتفق عليه الفني معك في الموقع ويسجّله عند الانتهاء. ${state.co.pay === 'later' ? 'الدفع آجل.' : 'الدفع بعد التنفيذ.'}</span></div>
     <button class="btn primary block" data-act="placeOrder" ${!t.count ? 'disabled' : ''}>أرسل طلب الخدمة</button>`);
   if (!p.delivers) state.co.fulfil = 'pickup';
   const del = state.co.fulfil === 'delivery' ? p.deliveryFee : 0, below = t.subtotal < p.minOrder;
@@ -1428,11 +1460,12 @@ function checkoutView() {
     <button class="opt ${state.co.fulfil === 'pickup' ? 'on' : ''}" data-act="fulfil" data-k="pickup" aria-pressed="${state.co.fulfil === 'pickup'}"><span><b>${shopish ? 'أسلّم وأستلم في المحل' : 'أستلم من المحل'}</b><small class="muted">بدون رسوم</small></span><b class="num">0 ر.س</b></button></div>
     ${state.co.fulfil === 'delivery' ? addrChooser('co', false) : ''}
     <label class="fld" for="co-when"><span>الموعد</span><select id="co-when" data-bind="co.when">${WHENS.slice(0, 4).map(w => `<option ${state.co.when === w ? 'selected' : ''}>${w}</option>`).join('')}</select></label>
+    ${payPick('co')}
     <label class="fld" for="co-note"><span>ملاحظة للمحل (اختياري)</span><textarea id="co-note" data-bind="co.note" rows="2" placeholder="مثال: إذا الصنف خلص جيبوا بديل قريب">${esc(state.co.note)}</textarea></label>`) +
     card('', `<div class="lines"><div class="line"><span>قيمة الطلب</span><span class="num">${money(t.subtotal)}</span></div>
     <div class="line"><span>التوصيل</span><span class="num">${money(del)}</span></div>
     <div class="line total"><span>الإجمالي</span><span class="num">${money(t.subtotal + del)}</span></div></div>
-    <div class="note">${icon('wallet', 'sm')} الدفع عند الاستلام، نقداً أو تحويل مباشر.</div>
+    <div class="note ${state.co.pay === 'later' ? 'bad' : ''}">${icon('wallet', 'sm')} ${state.co.pay === 'later' ? 'الدفع آجل، يُسدَّد لاحقاً لمقدم الخدمة.' : 'الدفع عند الاستلام، نقداً أو تحويل مباشر.'}</div>
     ${below ? `<div class="note warn">أقل طلب عند ${esc(p.name)} هو ${money(p.minOrder)}. أضف أصنافاً بقيمة ${money(p.minOrder - t.subtotal)}.</div>` : ''}
     <button class="btn primary block" data-act="placeOrder" ${below || !t.count ? 'disabled' : ''}>أكّد الطلب · ${money(t.subtotal + del)}</button>`);
 }
@@ -1447,7 +1480,7 @@ function stepper(o) {
   if (o.type === 'text') steps.push({ l: 'عرض سعر', d: !!o.acceptedQuote });
   steps.push({ l: 'مقبول', d: rank >= 2 }, { l: 'قيد التنفيذ', d: rank >= 3 });
   if (o.needsCourier) steps.push({ l: 'مع المندوب', d: rank >= 4 });
-  steps.push({ l: 'تم التسليم والدفع', d: rank >= 5 }, { l: 'مُقيَّم ومغلق', d: rank >= 6 });
+  steps.push({ l: o.pay === 'later' ? 'تم التسليم' : 'تم التسليم والدفع', d: rank >= 5 }, { l: 'مُقيَّم ومغلق', d: rank >= 6 });
   const cur = steps.findIndex(s => !s.d), last = cur === -1 ? steps.at(-1) : steps[cur - 1], next = cur === -1 ? null : steps[cur];
   return `<div class="bar" aria-hidden="true">${steps.map((s, i) => `<i class="${s.d ? 'd' : ''} ${i === cur ? 'c' : ''}"></i>`).join('')}</div>
     <div class="bar-l"><span>الآن: <b>${last.l}</b></span>${next ? `<span class="muted">التالي: ${next.l}</span>` : ''}</div>`;
@@ -1515,7 +1548,16 @@ function totalsCard(o) {
     ${o.deliveryFee ? `<div class="line"><span>التوصيل</span><span class="num">${money(o.deliveryFee)}</span></div>` : ''}
     <div class="line total"><span>الإجمالي</span><span class="num">${money(o.total)}</span></div>
     ${showComm ? `<div class="line"><span class="muted sm">العمولة</span><span class="muted sm">${o.rates?.trial ? 'مجانية (فترة التجربة)' : `المنصة ${money(f.platform)}${o.brokerId ? ` · المنسّق ${money(f.broker)}` : ''}`}</span></div>` : ''}</div>
-    <div class="note">${icon('wallet', 'sm')} ${visitOpen ? 'السعر النهائي يتفق عليه الفني معك في الموقع، والدفع بعد التنفيذ.' : `الدفع عند الاستلام${o.needsCourier ? '، ويحصّله المندوب' : ''}.`}</div>`);
+    ${payNote(o, visitOpen)}`);
+}
+function payNote(o, visitOpen) {
+  const u = me(), ps = payState(o);
+  if (o.pay === 'later') {
+    if (ps === 'paid') return `<div class="note">${icon('wallet', 'sm')} كان الدفع آجلاً، وتم السداد ${o.paidAt ? dtText(o.paidAt) : ''}.</div>`;
+    const canMark = ['delivered', 'closed'].includes(o.status) && ((u.role === 'provider' && o.providerId === u.id) || u.role === 'admin');
+    return `<div class="note bad">${icon('wallet', 'sm')}<span>الدفع آجل${['delivered', 'closed'].includes(o.status) ? ` · المبلغ ${money(o.total)} لم يُسدَّد بعد` : ' · يُسدَّد لاحقاً'}.</span></div>${canMark ? `<button class="btn primary block" data-act="markPaid" data-id="${o.id}">${icon('check', 'sm')} تم السداد · ${money(o.total)}</button>` : ''}`;
+  }
+  return `<div class="note">${icon('wallet', 'sm')} ${visitOpen ? 'السعر النهائي يتفق عليه الفني معك في الموقع، والدفع بعد التنفيذ.' : ['delivered', 'closed'].includes(o.status) ? 'تم الدفع عند الاستلام.' : `الدفع عند الاستلام${o.needsCourier ? '، ويحصّله المندوب' : ''}.`}</div>`;
 }
 function actionsCard(o) {
   const u = me(), b = [];
@@ -1584,7 +1626,7 @@ function locCard(o) {
 function orderView(id) {
   const o = O(id); if (!o) return empty('هذا الطلب لم يعد متاحاً لك.');
   const cat = CAT(o.cat), out = ['cancelled', 'rejected'].includes(o.status);
-  return `<section class="card"><div class="ohead-top"><div><div class="oid">طلب #${o.id}</div><div class="muted sm">${cat.name} · ${o.type === 'menu' ? 'من القائمة' : 'طلب نصي'} · ${ago(o.createdAt)}</div></div>${pill(o)}</div>
+  return `<section class="card"><div class="ohead-top"><div><div class="oid">طلب #${o.id}</div><div class="muted sm">${cat.name} · ${o.type === 'menu' ? 'من القائمة' : 'طلب نصي'} · ${dtText(o.createdAt)}</div>${me().role !== 'customer' ? `<div class="sm" style="margin-top:3px">${icon('user', 'xs')} <b>${esc(o.customerName)}</b></div>` : ''}${o.pay === 'later' ? `<div style="margin-top:5px">${payTag(o)}</div>` : ''}</div>${pill(o)}</div>
     ${out ? `<div class="note bad">${o.status === 'cancelled' ? 'أُلغي هذا الطلب' : 'اعتذر مقدم الخدمة عن هذا الطلب'}${o.reason ? `: ${esc(o.reason)}` : ''}</div>` : stepper(o)}</section>`
     + actionsCard(o) + (o.type === 'text' && o.status === 'new' ? quotesCard(o) : '') + contentCard(o) + locCard(o) + totalsCard(o) + partiesCard(o) + ratingCard(o) + chatCard(o) + logCard(o);
 }
@@ -1599,7 +1641,7 @@ VIEWS.p_orders = u => {
   const working = os.filter(o => o.providerId === u.id && ['accepted', 'in_progress', 'with_courier'].includes(o.status));
   const done = os.filter(o => o.providerId === u.id && ['delivered', 'closed', 'cancelled', 'rejected'].includes(o.status));
   const k = state.sub.p_orders;
-  return locNote + seg('p_orders', [['targeted', 'موجّهة لي', targeted.filter(o => !quotedByMe(o)).length], ['open', 'مفتوحة في الحي', open.filter(o => !quotedByMe(o)).length], ['working', 'قيد التنفيذ', working.length], ['done', 'منتهية', 0]]) +
+  return locNote + seg('p_orders', [['targeted', 'موجّهة لي', targeted.filter(o => !quotedByMe(o)).length, custNames(targeted)], ['open', 'مفتوحة في الحي', open.filter(o => !quotedByMe(o)).length, custNames(open)], ['working', 'قيد التنفيذ', working.length, custNames(working)], ['done', 'منتهية', done.filter(isDue).length, done.filter(isDue).length ? 'آجل غير مسدد: ' + custNames(done.filter(isDue)) : '']]) +
     (k === 'targeted' ? listOr(targeted, 'ما فيه طلبات موجّهة لك الآن. لما يضيفك عميل لمفضلته أو يختارك، تظهر طلباته هنا.')
       : k === 'open' ? (open.length ? `<p class="muted sm">طلبات ${catNames(u)} المفتوحة في أحيائك. أرسل عرضك والعميل يختار.</p>${listOr(open, '')}` : empty('ما فيه طلبات مفتوحة في أحيائك الآن.'))
         : k === 'working' ? listOr(working, 'ما فيه طلبات قيد التنفيذ.') : listOr(done, 'ما فيه طلبات منتهية بعد.'));
@@ -1624,12 +1666,13 @@ VIEWS.p_income = u => {
   const day = new Date(); day.setHours(0, 0, 0, 0); const mon = new Date(day.getFullYear(), day.getMonth(), 1);
   const sum = a => a.reduce((s, o) => s + o.subtotal, 0);
   const today = mine.filter(o => (o.deliveredAt || o.createdAt) >= day), month = mine.filter(o => (o.deliveredAt || o.createdAt) >= mon);
-  const comm = mine.reduce((s, o) => s + o.platformFee + o.brokerFee, 0);
+  const comm = mine.reduce((s, o) => s + o.platformFee + o.brokerFee, 0), due = mine.filter(isDue);
   return `<div class="tiles"><div class="tile hl"><span>دخل اليوم</span><b class="num">${money(sum(today))}</b><small>${today.length} طلب</small></div>
     <div class="tile"><span>دخل الشهر</span><b class="num">${money(sum(month))}</b><small>${month.length} طلب</small></div>
     <div class="tile"><span>تقييمك</span><b class="num">${u.ratingCount ? avg(u).toFixed(1) : '—'}</b><small>من ${u.ratingCount} تقييم</small></div>
     <div class="tile"><span>العمولة المستحقة</span><b class="num">${money(comm)}</b><small>${db.settings.trial ? 'مجانية في التجربة' : 'للمنصة والمنسّق'}</small></div></div>
-    <section><div class="sec-h"><h2>آخر الطلبات المنتهية</h2></div>${listOr(mine.sort(byNew).slice(0, 10), 'ما فيه طلبات منتهية بعد.')}</section>`;
+    ${due.length ? `<section class="duebox"><h3>${icon('wallet', 'sm')} مبالغ آجلة على العملاء: <span class="num">${money(due.reduce((s, o) => s + o.total, 0))}</span></h3><div class="lines">${groupBy(due, o => o.customerName).map(([n, a]) => `<div class="line"><span>${esc(n)} <span class="muted">(${plural(a.length, 'طلب', 'طلبان', 'طلبات')})</span></span><b class="num">${money(a.reduce((s, o) => s + o.total, 0))}</b></div>`).join('')}</div><p class="xs" style="margin:8px 0 0">افتح الطلب واضغط «تم السداد» لما تستلم المبلغ.</p></section>` : ''}
+    <section><div class="sec-h"><h2>آخر الطلبات المنتهية</h2></div>${listOr(mine.sort(byNew).slice(0, 15), 'ما فيه طلبات منتهية بعد.')}</section>`;
 };
 VIEWS.p_shop = u => {
   const c = CAT(u.cat), sel = state.shopCats || catsOf(u), k = kindOf(u.cat);
@@ -1701,7 +1744,7 @@ VIEWS.a_users = u => {
       acts.push(`<div class="chips">${b.join('')}</div>`);
     }
     const st = { active: 'good', pending: 'info', blocked: 'bad', rejected: 'bad' }[x.status];
-    return `<div class="card" data-s="${esc(norm(x.name + ' ' + x.phone))}"><div class="ohead-top"><div><b>${esc(x.name)}</b><p class="muted sm">${ROLE[x.role]}${x.role === 'provider' ? ` · ${catNames(x)} · ${x.districts.map(esc).join('، ')}` : x.district ? ` · حي ${esc(x.district)}` : ''}${x.vehicle ? ` · ${esc(x.vehicle)}` : ''}</p>
+    return `<div class="card" data-s="${esc(norm(x.name + ' ' + x.phone))}"><div class="ohead-top"><div><b>${esc(x.name)}</b>${(() => { const d = (db.orders || []).filter(o => isDue(o) && ['delivered', 'closed'].includes(o.status) && (o.customerId === x.id || o.providerId === x.id)), t = d.reduce((s, o) => s + o.total, 0); return d.length ? ` <span class="tag bad">${x.role === 'customer' ? 'عليه' : 'له'} آجل ${money(t)}</span>` : '' })()}<p class="muted sm">${ROLE[x.role]}${x.role === 'provider' ? ` · ${catNames(x)} · ${x.districts.map(esc).join('، ')}` : x.district ? ` · حي ${esc(x.district)}` : ''}${x.vehicle ? ` · ${esc(x.vehicle)}` : ''}</p>
       <p class="muted xs">${phone(x.phone)} · ${ago(x.createdAt)}${x.locked ? ' · <b style="color:var(--bad)">مقفل بعد محاولات خاطئة</b>' : ''}</p></div><span class="pill t-${st}">${STATUS_U[x.status]}</span></div>${acts.join('')}</div>`;
   };
   return seg('a_users', [['pending', 'بانتظار الاعتماد', pend.length], ['all', 'الكل', 0]]) +
@@ -1831,6 +1874,8 @@ const ACT = {
   scrim(d, e) { if (e.target.classList.contains('scrim')) { state.sheet = null; render() } },
   pickcat(d) { state.compose.cat = d.keep ? d.id : state.compose.cat === d.id ? '' : d.id; state.compose.scope = 'fav'; render() },
   scope(d) { state.compose.scope = d.k; render() },
+  payMode(d) { state[d.key].pay = d.k; render() },
+  markPaid(d) { run('markPaid', { id: d.id }, 'تم تسجيل السداد') },
   unphoto() { state.compose.photo = null; render() },
   askCat(d) { state.compose.cat = d.id; state.compose.target = null; state.compose.scope = 'fav'; state.stack = []; state.tab = 'home'; render(); window.scrollTo(0, 0); setTimeout(() => $('#c-text')?.focus(), 50) },
   fav(d) { run('toggleFavorite', { pid: d.id }, j => j.added ? 'أُضيف لمفضلتك' : 'أُزيل من مفضلتك') },
@@ -1846,7 +1891,7 @@ const ACT = {
   placeOrder() {
     const c = state.cart, lines = Object.entries(c.items).map(([id, qty]) => ({ id, qty }));
     const svc = isSvc(P(c.pid)?.cat);
-    run('createMenuOrder', { pid: c.pid, lines, addrId: addrById(state.co.addrId)?.id, fulfil: svc ? 'visit' : state.co.fulfil, note: state.co.note.trim(), when: svc ? whenOf('co') : state.co.when }, () => `وصل طلبك إلى ${P(c.pid)?.name || 'المحل'}`,
+    run('createMenuOrder', { pid: c.pid, lines, addrId: addrById(state.co.addrId)?.id, fulfil: svc ? 'visit' : state.co.fulfil, note: state.co.note.trim(), when: svc ? whenOf('co') : state.co.when, pay: state.co.pay === 'later' ? 'later' : 'now' }, () => `وصل طلبك إلى ${P(c.pid)?.name || 'المحل'}`,
       j => { state.cart = null; state.compose.target = null; state.stack = [{ v: 'order', id: j.orderId }]; window.scrollTo(0, 0) });
   },
   accept(d) { run('accept', { id: d.id }, 'قبلت الطلب') },
@@ -1968,7 +2013,7 @@ const FORMS = {
     if (!cat) { toast('اختر نوع الخدمة'); return }
     const favs = target ? [] : favProviders(cat), useFav = !target && favs.length && c.scope === 'fav';
     const targets = target ? [target] : useFav ? favs.map(p => p.id) : [];
-    run('createTextOrder', { cat, text, when: CAT(cat).visit ? whenOf('compose') : c.when, photo: c.photo || '', targets, addrId: addrById(c.addrId)?.id },
+    run('createTextOrder', { cat, text, when: CAT(cat).visit ? whenOf('compose') : c.when, photo: c.photo || '', targets, addrId: addrById(c.addrId)?.id, pay: c.pay === 'later' ? 'later' : 'now' },
       () => target ? `وصل طلبك إلى ${P(target)?.name}` : useFav ? `وصل طلبك لمفضلتك (${targets.length})` : 'وصل طلبك لكل مقدمي الخدمة في الحي',
       j => { resetCompose(); state.stack = [{ v: 'order', id: j.orderId }]; window.scrollTo(0, 0) });
   },
