@@ -1286,8 +1286,10 @@ function pendingView(u) {
 function orderCard(o) {
   const u = me(), cat = CAT(o.cat);
   let title;
-  if (u.role === 'customer') title = o.providerName || (o.targetCount ? (o.targetCount === 1 ? o.targetNames[0] : `مفضلتك في ${cat.name} (${o.targetCount})`) : `كل مقدمي ${cat.name} في الحي`);
-  else title = o.customerName;
+  const qn = (o.quotes || []).map(q => q.pname).filter(Boolean);
+  if (u.role === 'customer') title = o.providerName || (qn.length ? (qn.length === 1 ? `عرض من ${qn[0]}` : `${qn.length} عروض: ${qn.join('، ')}`) : o.targetCount ? (o.targetCount === 1 ? o.targetNames[0] : `مفضلتك في ${cat.name} (${o.targetCount})`) : `كل مقدمي ${cat.name} في الحي`);
+  else if (u.role === 'provider') title = o.customerName;
+  else title = `${o.customerName} ← ${o.providerName || (qn.length ? `${qn.length} ${qn.length === 1 ? 'عرض' : 'عروض'}` : o.targetCount ? o.targetNames.join('، ') : 'كل الحي')}`;
   const sum = o.type === 'menu' ? o.items.map((i, x) => `${itemTrName(i, o, x) || i.name}${i.qty > 1 ? ` ×${i.qty}` : ''}`).join(myLang() === 'ar' ? '، ' : ', ') : (o.textTr || o.text);
   const tags = [];
   if (o.type === 'text' && o.status === 'new') {
@@ -1430,7 +1432,7 @@ function providerView(id) {
 function groupBySec(p, items) {
   const cat = catalogFor(p); if (!cat) return [{ id: 'all', name: '', items }];
   const known = new Set(cat.sections.map(x => x.id));
-  return [...cat.sections, { id: 'other', name: 'أصناف أخرى' }].map(g => ({ ...g, items: items.filter(i => (known.has(i.sec) ? i.sec : 'other') === g.id) })).filter(g => g.items.length);
+  return [...cat.sections, { id: 'other', name: isSvc(p.cat) ? 'خدمات أخرى' : 'أصناف أخرى' }].map(g => ({ ...g, items: items.filter(i => (known.has(i.sec) ? i.sec : 'other') === g.id) })).filter(g => g.items.length);
 }
 function menuBrowser(p, items, row, key) {
   const groups = groupBySec(p, items);
@@ -1882,12 +1884,15 @@ function sheetHtml() {
   }
   if (s.type === 'item') {
     const cat = catalogFor(u), it = s.id ? (db.menu || []).find(m => m.id === s.id) : { name: '', price: '', sec: 'other' };
-    h = `<h2>${s.id ? 'تعديل صنف' : 'صنف خاص'}</h2><form data-form="item" class="stack">
-      <label class="fld" for="it-name"><span>اسم الصنف</span><input id="it-name" name="name" value="${esc(it?.name)}" required placeholder="مثال: خبز تميس"></label>
-      <div class="${cat ? 'row2' : ''}"><label class="fld" for="it-price"><span>السعر (ر.س)</span><input id="it-price" name="price" type="number" min="0" step="0.25" value="${it?.price}" required inputmode="decimal"></label>
-      ${cat ? `<label class="fld" for="it-sec"><span>القسم</span><select id="it-sec" name="sec">${[...cat.sections, { id: 'other', name: 'أصناف أخرى' }].map(x => `<option value="${x.id}" ${it?.sec === x.id ? 'selected' : ''}>${x.name}</option>`).join('')}</select></label>` : ''}</div>
+    const sv = isSvc(u.cat), w = sv ? 'خدمة' : 'صنف';
+    const EX = { grocery: 'عسل سدر 500 جم', veg: 'مانجو هندي 1 كجم', bakery: 'كيكة شوكولاتة كبيرة', laundry: 'غسيل وكي ثوب', tailor: 'تفصيل ثوب صيفي', plumbing: 'تركيب سخان 50 لتر', electric: 'تركيب ثريا', ac: 'غسيل مكيف شباك', paint: 'دهان غرفة 4×4', tiles: 'تركيب بلاط متر مربع' };
+    const ex = catsOf(u).map(k => EX[k]).filter(Boolean).slice(0, 2).join('، أو ');
+    h = `<h2>${s.id ? `تعديل ال${w}` : `${w} خاص${sv ? 'ة' : ''}`}</h2><form data-form="item" class="stack">
+      <label class="fld" for="it-name"><span>اسم ال${w}</span><input id="it-name" name="name" value="${esc(it?.name)}" required placeholder="${ex ? `مثال: ${ex}` : ''}"></label>
+      <div class="${cat ? 'row2' : ''}"><label class="fld" for="it-price"><span>${sv ? 'السعر يبدأ من (ر.س)' : 'السعر (ر.س)'}</span><input id="it-price" name="price" type="number" min="0" step="0.25" value="${it?.price}" required inputmode="decimal"></label>
+      ${cat ? `<label class="fld" for="it-sec"><span>القسم</span><select id="it-sec" name="sec">${[...cat.sections, { id: 'other', name: sv ? 'خدمات أخرى' : 'أصناف أخرى' }].map(x => `<option value="${x.id}" ${it?.sec === x.id ? 'selected' : ''}>${x.name}</option>`).join('')}</select></label>` : ''}</div>
       ${it?.cid && cat && cat.items.find(c => c.id === it.cid) ? `<p class="muted xs">السعر المقترح في القائمة الجاهزة: ${money(cat.items.find(c => c.id === it.cid)?.price)}</p>` : ''}
-      <button class="btn primary block">حفظ</button>${s.id ? `<button type="button" class="btn danger block" data-act="delItem">${icon('trash', 'sm')} حذف الصنف من قائمتي</button>` : ''}</form>`;
+      <button class="btn primary block">حفظ</button>${s.id ? `<button type="button" class="btn danger block" data-act="delItem">${icon('trash', 'sm')} حذف ال${w} من قائمتي</button>` : ''}</form>`;
   }
   if (s.type === 'catalog') {
     const cat = catalogFor(u), have = new Set((db.menu || []).filter(i => i.cid).map(i => i.cid));
