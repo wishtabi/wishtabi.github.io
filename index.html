@@ -146,6 +146,25 @@ textarea:focus,input:focus,select:focus{border-color:var(--accent)}
 .ocard-meta b{color:var(--ink);font-size:14px}
 .tags{display:flex;gap:6px;flex-wrap:wrap}
 .tag.bad{background:var(--bad-soft);color:var(--bad)}
+.pernav{display:flex;align-items:center;gap:8px;margin:2px 0}
+.pernav .seg{flex:1;box-shadow:none;background:var(--bg)}
+.perbar{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.perbar .lbl{font-weight:800;font-size:14px;text-align:center;flex:1}
+.persum{display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:var(--on-navy);border-radius:var(--r);padding:12px 14px}
+.persum b{font-size:19px}.persum small{opacity:.8;display:block;font-size:12px}
+.grp{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);border-inline-start:4px solid var(--good);overflow:hidden}
+.grp.due{border-inline-start-color:var(--bad)}.grp.out{border-inline-start-color:var(--line);opacity:.75}
+.grp-h{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;font:inherit;color:inherit;padding:12px 14px;cursor:pointer;text-align:start}
+.grp-h .nm{flex:1;min-width:0}.grp-h .nm b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grp-h .nm small{color:var(--muted);font-size:12.5px}
+.grp-h .am{text-align:end;white-space:nowrap}.grp-h .am b{font-size:15.5px}.grp-h .am small{display:block;font-size:11.5px;color:var(--bad);font-weight:700}
+.grp-h .chev{transition:transform .2s;color:var(--muted);font-size:18px}.grp.open .chev{transform:rotate(-90deg)}
+.grp-b{border-top:1px solid var(--line)}
+.gline{display:block;width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;font:inherit;color:inherit;text-align:start;padding:10px 14px;cursor:pointer}
+.gline:last-child{border-bottom:0}.gline.due{background:var(--bad-soft)}.gline.out{opacity:.55}
+.gline .r1,.gline .r2{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.gline .r1{font-size:12.5px;color:var(--muted)}.gline .r1 .amt{display:flex;gap:6px;align-items:center;white-space:nowrap}.gline .r1 b{color:var(--ink);font-size:14px}
+.gline .r2{font-size:13.5px;margin-top:3px}.gline .r2 span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ocard.due{border-inline-start-color:var(--bad);background:linear-gradient(to left,var(--bad-soft),var(--surface) 38%)}
 .ocard .orow{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--muted)}
 .ocard .orow .amt{display:flex;align-items:center;gap:6px;white-space:nowrap;flex:none}
@@ -1113,7 +1132,8 @@ const state = {
   reg: { role: 'customer', name: '', phone: '', pin: '', pin2: '', district: '', details: '', cat: '', cats: [], hours: '', vehicle: '', districts: [], lang: 'ar' },
   tab: '', stack: [], cart: null, co: { fulfil: 'delivery', note: '', when: 'أقرب وقت' },
   compose: { text: '', cat: '', when: 'أقرب وقت', photo: null, target: null, scope: 'fav' },
-  sub: { orders: 'current', p_orders: 'targeted', a_orders: 'active', a_users: 'pending' },
+  perOff: 0, grpOpen: {},
+  sub: { per: 'day', orders: 'current', p_orders: 'targeted', a_orders: 'active', a_users: 'pending' },
   sheet: null, rate: 5, rateText: '', filters: {}, menus: {}, menuLoading: {}, photos: {}, photoLoading: {}
 };
 
@@ -1187,6 +1207,32 @@ function payTag(o) {
 }
 function dtText(t) { const d = new Date(t); const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']; let h = d.getHours(); const pm = h >= 12; h = h % 12 || 12; return `${days[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1} · ${h}:${String(d.getMinutes()).padStart(2, '0')} ${pm ? 'م' : 'ص'}` }
 const groupBy = (arr, f) => { const m = new Map(); arr.forEach(o => { const k = f(o) || '—'; m.set(k, (m.get(k) || []).concat(o)) }); return [...m.entries()] };
+function perRange() {
+  const n = new Date(); n.setHours(0, 0, 0, 0); const off = state.perOff;
+  let a, b, l;
+  const f = d => `${d.getDate()}/${d.getMonth() + 1}`;
+  if (state.sub.per === 'day') { a = new Date(n); a.setDate(a.getDate() + off); b = new Date(a); b.setDate(b.getDate() + 1); l = off === 0 ? `اليوم ${f(a)}` : off === -1 ? `أمس ${f(a)}` : `${['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'][a.getDay()]} ${f(a)}` }
+  else if (state.sub.per === 'week') { a = new Date(n); a.setDate(a.getDate() - ((a.getDay() + 1) % 7) + off * 7); b = new Date(a); b.setDate(b.getDate() + 7); const e = new Date(b); e.setDate(e.getDate() - 1); l = `${off === 0 ? 'هذا الأسبوع' : off === -1 ? 'الأسبوع الماضي' : 'أسبوع'} ${f(a)} – ${f(e)}` }
+  else { a = new Date(n.getFullYear(), n.getMonth() + off, 1); b = new Date(a.getFullYear(), a.getMonth() + 1, 1); l = `${['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'][a.getMonth()]} ${a.getFullYear()}` }
+  return { a: +a, b: +b, l };
+}
+/* الطلبات مجمّعة حسب الطرف الآخر: سطر لكل محل أو عميل، ويفتح لتفاصيل طلباته */
+function groupedOrders(list, keyOf, nameOf, emptyTxt) {
+  const r = perRange(), inP = list.filter(o => o.createdAt >= r.a && o.createdAt < r.b).sort(byNew);
+  const live = o => !['cancelled', 'rejected'].includes(o.status), amt = o => o.total || o.subtotal || 0;
+  const tot = inP.filter(live).reduce((s, o) => s + amt(o), 0), cnt = inP.filter(live).length;
+  const groups = groupBy(inP, keyOf).map(([k, a]) => ({ k, a, name: nameOf(a[0]), sum: a.filter(live).reduce((s, o) => s + amt(o), 0), due: a.filter(isDue).reduce((s, o) => s + amt(o), 0) })).sort((x, y) => y.sum - x.sum);
+  const head = `<div class="pernav">${seg('per', [['day', 'يومي'], ['week', 'أسبوعي'], ['month', 'شهري']]).replace(/data-act="sub" data-key="per"/g, 'data-act="per"')}</div>
+    <div class="perbar"><button class="iconbtn light" data-act="perShift" data-k="-1" aria-label="الفترة السابقة">›</button><span class="lbl">${r.l}</span><button class="iconbtn light" data-act="perShift" data-k="1" aria-label="الفترة التالية" ${state.perOff >= 0 ? 'disabled style="opacity:.35"' : ''}>‹</button></div>`;
+  if (!inP.length) return head + empty(emptyTxt);
+  const gl = groups.filter(g => g.a.some(live)).length;
+  const line = o => { const sum = o.type === 'menu' ? o.items.map((i, x) => `${itemTrName(i, o, x) || i.name}${i.qty > 1 ? ` ×${i.qty}` : ''}`).join('، ') : (o.textTr || o.text);
+    return `<button class="gline ${isDue(o) ? 'due' : ''} ${live(o) ? '' : 'out'}" data-act="open" data-v="order" data-id="${o.id}"><span class="r1"><span class="num">${dtText(o.createdAt)} · #${o.id}</span><span class="amt">${live(o) ? payTag(o) : pill(o)}${amt(o) ? `<b class="num">${money(amt(o))}</b>` : ''}</span></span><span class="r2"><span dir="auto">${esc(sum || '')}</span></span></button>` };
+  return head + `<div class="persum"><span><small>${cnt} ${cnt === 1 ? 'طلب' : 'طلبات'} · ${gl} ${me().role === 'customer' ? (gl === 1 ? 'محل' : 'محلات') : (gl === 1 ? 'عميل' : 'عملاء')}</small>المجموع</span><b class="num">${money(tot)}</b></div>
+    <div class="list">${groups.map(g => { const open = state.grpOpen[g.k]; return `<div class="grp ${g.due ? 'due' : ''} ${g.a.some(live) ? '' : 'out'} ${open ? 'open' : ''}">
+      <button class="grp-h" data-act="grp" data-k="${esc(g.k)}" aria-expanded="${!!open}"><span class="nm"><b>${esc(g.name)}</b><small>${plural(g.a.length, 'طلب واحد', 'طلبان', 'طلبات')}</small></span><span class="am"><b class="num">${money(g.sum)}</b>${g.due ? `<small>منها آجل ${money(g.due)}</small>` : ''}</span><span class="chev">‹</span></button>
+      ${open ? `<div class="grp-b">${g.a.map(line).join('')}</div>` : ''}</div>` }).join('')}</div>`;
+}
 const custNames = arr => [...new Set(arr.map(o => o.customerName).filter(Boolean))].join('، ');
 function pill(o) { const s = ST[o.status]; const l = o.status === 'new' && !o.providerId ? (o.targetCount && me().role === 'customer' ? 'بانتظار المختارين' : 'مفتوح') : o.status === 'delivered' && isDue(o) ? 'تم التسليم' : s.l; return `<span class="pill t-${s.t}">${l}</span>` }
 
@@ -1329,7 +1375,7 @@ VIEWS.orders = u => {
   const cur = mine.filter(o => ACTIVE.includes(o.status) || o.status === 'delivered'), past = mine.filter(o => !cur.includes(o));
   const due = mine.filter(o => isDue(o) && ['delivered', 'closed'].includes(o.status)), dueSum = due.reduce((s, o) => s + o.total, 0);
   return (due.length ? `<div class="duebox"><h3>${icon('wallet', 'sm')} عليك مبالغ آجلة: <span class="num">${money(dueSum)}</span></h3><div class="lines">${groupBy(due, o => o.providerName).map(([n, a]) => `<div class="line"><span>${esc(n)} <span class="muted">(${plural(a.length, 'طلب', 'طلبان', 'طلبات')})</span></span><b class="num">${money(a.reduce((s, o) => s + o.total, 0))}</b></div>`).join('')}</div></div>` : '') +
-    seg('orders', [['current', 'الحالية', cur.length], ['past', 'السابقة', 0]]) + (state.sub.orders === 'current' ? listOr(cur, 'ما عندك طلبات جارية. اكتب "وش تبي" في الرئيسية وأرسل طلبك.') : listOr(past, 'ما فيه طلبات سابقة بعد.'));
+    seg('orders', [['current', 'الحالية', cur.length], ['past', 'السابقة', 0]]) + (state.sub.orders === 'current' ? listOr(cur, 'ما عندك طلبات جارية. اكتب "وش تبي" في الرئيسية وأرسل طلبك.') : groupedOrders(past, o => o.providerId || 'none', o => o.providerName || 'طلبات لم يقبلها أحد', 'ما فيه طلبات في هذه الفترة.'));
 };
 VIEWS.account = u => `
   ${card('بياناتي', `<form data-form="profile" class="stack">
@@ -1644,7 +1690,7 @@ VIEWS.p_orders = u => {
   return locNote + seg('p_orders', [['targeted', 'موجّهة لي', targeted.filter(o => !quotedByMe(o)).length, custNames(targeted)], ['open', 'مفتوحة في الحي', open.filter(o => !quotedByMe(o)).length, custNames(open)], ['working', 'قيد التنفيذ', working.length, custNames(working)], ['done', 'منتهية', done.filter(isDue).length, done.filter(isDue).length ? 'آجل غير مسدد: ' + custNames(done.filter(isDue)) : '']]) +
     (k === 'targeted' ? listOr(targeted, 'ما فيه طلبات موجّهة لك الآن. لما يضيفك عميل لمفضلته أو يختارك، تظهر طلباته هنا.')
       : k === 'open' ? (open.length ? `<p class="muted sm">طلبات ${catNames(u)} المفتوحة في أحيائك. أرسل عرضك والعميل يختار.</p>${listOr(open, '')}` : empty('ما فيه طلبات مفتوحة في أحيائك الآن.'))
-        : k === 'working' ? listOr(working, 'ما فيه طلبات قيد التنفيذ.') : listOr(done, 'ما فيه طلبات منتهية بعد.'));
+        : k === 'working' ? listOr(working, 'ما فيه طلبات قيد التنفيذ.') : groupedOrders(done, o => o.customerId, o => o.customerName, 'ما فيه طلبات منتهية في هذه الفترة.'));
 };
 VIEWS.p_menu = u => {
   const items = db.menu || [], cat = catalogFor(u), cn = catNames(u);
@@ -1874,6 +1920,9 @@ const ACT = {
   scrim(d, e) { if (e.target.classList.contains('scrim')) { state.sheet = null; render() } },
   pickcat(d) { state.compose.cat = d.keep ? d.id : state.compose.cat === d.id ? '' : d.id; state.compose.scope = 'fav'; render() },
   scope(d) { state.compose.scope = d.k; render() },
+  per(d) { state.sub.per = d.k; state.perOff = 0; render() },
+  perShift(d) { state.perOff = Math.min(0, state.perOff + +d.k); render() },
+  grp(d) { state.grpOpen[d.k] = !state.grpOpen[d.k]; render() },
   payMode(d) { state[d.key].pay = d.k; render() },
   markPaid(d) { run('markPaid', { id: d.id }, 'تم تسجيل السداد') },
   unphoto() { state.compose.photo = null; render() },
