@@ -70,6 +70,12 @@ p{margin:0}
 .who-txt b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
 .who-txt small{font-size:11.5px;opacity:.75}
 .strip{background:var(--accent-soft);color:var(--ink);font-size:12.5px;text-align:center;padding:6px 14px;position:relative;min-height:34px;display:flex;align-items:center;justify-content:center}
+.clist{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:12px}
+.crow{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
+.crow:last-child{border-bottom:0}.crow input{margin-top:3px;width:18px;height:18px;flex:none;accent-color:var(--bad)}
+.crow .cb{flex:1;min-width:0}.crow .cb b{font-size:13.5px}.crow .cb small{display:block;color:var(--muted)}
+.crow.keep{opacity:.55}.crow .ca{text-align:end;white-space:nowrap}
+.ctools{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:13px}
 .devbar{background:repeating-linear-gradient(-45deg,#b42318 0 12px,#c8331f 12px 24px);color:#fff;text-align:center;font-size:12.5px;font-weight:800;padding:5px 10px;letter-spacing:.3px}
 .strip.withqr{padding-inline-end:64px}
 .qrbtn{position:absolute;inset-inline-end:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:5px;border:0;border-radius:10px;background:var(--navy);color:#fff;padding:4px 9px 4px 7px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.15)}
@@ -416,8 +422,8 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '3.1';
-const NEED_SERVER = '3.1'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
+const APP_VERSION = '3.2';
+const NEED_SERVER = '3.2'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
 const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
 /* بيئتان: التشغيل على الرابط الأساسي، والتطوير على /dev/ بنفس الملف */
 const API_PROD = 'https://script.google.com/macros/s/AKfycbznWE9rT2Jv8LhJvek3hIe04uadL6bF6WDL_S_pltjmNCdQJsEAcTm7QFTJWOl_l1w/exec';
@@ -1982,6 +1988,19 @@ VIEWS.a_orders = u => {
   return seg('a_orders', [['active', 'جارية'], ['open', 'مفتوحة'], ['done', 'منتهية'], ['out', 'ملغاة'], ['all', 'الكل']]) +
     groupedOrders(os.filter(f), o => `${o.customerId}|${o.cat}`, o => `${o.customerName} · ${CAT(o.cat).name}`, 'ما فيه طلبات هنا.', 'مجموعة', { noPeriod: ['active', 'open'].includes(k), countEnd: true, iconOf: o => CAT(o.cat).icon, detail: det });
 };
+function cleanMatches(q) {
+  const st = { cancelled: ['cancelled', 'rejected'], finished: ['delivered', 'closed', 'cancelled', 'rejected'], all: null }[q.scope];
+  return db.orders.filter(o => o.createdAt < q.before && (!st || st.includes(o.status)) && (q.withDue || !(isDue(o) && ['delivered', 'closed'].includes(o.status)))).sort(byNew);
+}
+function cleanList() {
+  const q = state.clean, list = cleanMatches(q), sel = q.sel;
+  if (!list.length) return `<div class="note">${icon('check', 'sm')}<span>ما فيه طلبات تطابق اختيارك.</span></div><button type="button" class="btn ghost block" data-act="cleanX">رجوع</button>`;
+  const n = list.filter(o => sel.has(o.id)).length;
+  return `<div class="ctools"><span><b>${list.length}</b> طلب · المحدد للحذف <b style="color:var(--bad)">${n}</b></span><span style="display:flex;gap:6px"><button type="button" class="btn ghost sm" data-act="cleanAll" data-k="1">حدد الكل</button><button type="button" class="btn ghost sm" data-act="cleanAll" data-k="0">ألغِ الكل</button></span></div>
+    <div class="clist">${list.map(o => { const on = sel.has(o.id), amt = o.total || o.subtotal; return `<label class="crow ${on ? '' : 'keep'}"><input type="checkbox" data-clean="${o.id}" ${on ? 'checked' : ''}><span class="cb"><b>#${o.id} · ${esc(o.customerName)} ← ${esc(o.providerName || 'بدون مقدم')}</b><small>${dtText(o.createdAt)} · ${CAT(o.cat).name} · ${ST[o.status].l}${isDue(o) ? ' · <span style="color:var(--bad)">آجل غير مسدد</span>' : ''}</small><small dir="auto">${esc(o.type === 'menu' ? o.items.map(i => i.name).join('، ') : o.text || '')}</small></span><span class="ca">${amt ? `<b class="num">${money(amt)}</b>` : ''}</span></label>` }).join('')}</div>
+    <p class="muted xs" style="margin:0">اللي عليه ✓ ينحذف، واللي تشيل علامته يبقى.</p>
+    <div class="pair"><button type="button" class="btn danger block" data-act="cleanGo" ${n ? '' : 'disabled'}>احذف المحدد (${n})</button><button type="button" class="btn ghost block" data-act="cleanX">إلغاء</button></div>`;
+}
 VIEWS.a_settings = u => {
   const s = db.settings;
   return card('العمولة والتجربة', `<form data-form="settings" class="stack">
@@ -1998,8 +2017,7 @@ VIEWS.a_settings = u => {
       <label class="fld" for="cl-scope"><span>أي الطلبات</span><select id="cl-scope" name="scope">${[['cancelled', 'الملغاة والمعتذر عنها فقط'], ['finished', 'المنتهية والملغاة'], ['all', 'كل الطلبات حتى الجارية']].map(([k, l]) => `<option value="${k}" ${d.scope === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <label class="fld" for="cl-date"><span>اللي أُنشئت قبل</span><input id="cl-date" name="before" type="date" required value="${d.before || new Date(Date.now() + 864e5).toISOString().slice(0, 10)}"></label>
       <label class="toggle-row" for="cl-due"><span><b>تشمل الآجل غير المسدد</b><small class="muted">انتبه: تختفي المبالغ المستحقة من سجلات العملاء والمحلات</small></span><input type="checkbox" id="cl-due" name="withDue" ${d.withDue ? 'checked' : ''}></label>
-      ${state.clean ? `<div class="note ${state.clean.count ? 'bad' : ''}">${icon('trash', 'sm')}<span>${state.clean.count ? `بينحذف <b>${state.clean.count}</b> طلب نهائياً، وما يمكن استرجاعها.` : 'ما فيه طلبات تطابق اختيارك.'}</span></div>` : ''}
-      ${state.clean && state.clean.count ? `<div class="pair"><button type="button" class="btn danger block" data-act="cleanGo">احذف ${state.clean.count} طلب</button><button type="button" class="btn ghost block" data-act="cleanX">إلغاء</button></div>` : '<button class="btn dark block">احسب عدد الطلبات</button>'}
+      ${state.clean ? cleanList() : '<button class="btn dark block">اعرض الطلبات</button>'}
     </form>`) })();
 };
 
@@ -2178,10 +2196,11 @@ const ACT = {
   delLogo() { if (!confirm('حذف شعار المحل؟')) return; run('setLogo', { logo: '' }, 'تم حذف الشعار', () => { delete logoStore[me().id]; try { lsSet(LS_LOGO, JSON.stringify(logoStore)) } catch (e) { } }) },
   staffPerm(d) { run('staffStatus', { userId: d.id, perm: d.k }, d.k ? 'صار مدير محل' : 'رجع موظفاً') },
   cleanX() { state.clean = null; render() },
+  cleanAll(d) { const q = state.clean; if (!q) return; q.sel = d.k === '1' ? new Set(cleanMatches(q).map(o => o.id)) : new Set(); render() },
   cleanGo() {
-    const q = state.clean; if (!q || !q.count) return;
-    if (!confirm(`تأكيد نهائي: حذف ${q.count} طلب؟`)) return;
-    run('cleanOrders', { scope: q.scope, before: q.before, withDue: q.withDue }, j => `تم حذف ${j.count} طلب`, () => { state.clean = null });
+    const q = state.clean; if (!q) return; const ids = cleanMatches(q).filter(o => q.sel.has(o.id)).map(o => o.id);
+    if (!ids.length || !confirm(`تأكيد نهائي: حذف ${ids.length} طلب؟ ما يمكن استرجاعها.`)) return;
+    run('cleanOrders', { ids }, j => `تم حذف ${j.count} طلب`, () => { state.clean = null });
   },
   staffSt(d) { run('staffStatus', { userId: d.id, status: d.k }, d.k === 'active' ? 'تم تفعيل الموظف' : 'تم إيقاف الموظف') },
   delStaff(d) { const x = (db.staff || []).find(y => y.id === d.id); if (!confirm(`حذف ${x ? x.name : 'الموظف'}؟ طلباته المنفّذة تبقى محسوبة باسمه.`)) return; run('delStaff', { userId: d.id }, 'تم حذف الموظف') },
@@ -2255,6 +2274,7 @@ document.addEventListener('input', e => {
   const b = e.target.dataset.bind; if (!b) return; const [o, k] = b.split('.'); if (o === 'state') state[k] = e.target.value; else state[o][k] = e.target.value;
 });
 document.addEventListener('change', e => {
+  if (e.target.dataset.clean && state.clean) { const id = +e.target.dataset.clean; e.target.checked ? state.clean.sel.add(id) : state.clean.sel.delete(id); const sc = $('.clist')?.scrollTop; render(); const l = $('.clist'); if (l) l.scrollTop = sc; return }
   if (/^cl-/.test(e.target.id)) { const f = e.target.form, fd = new FormData(f); state.cleanDraft = { scope: fd.get('scope'), before: fd.get('before'), withDue: fd.get('withDue') === 'on' }; state.clean = null; render(); return }
   if (e.target.id === 'eu-role') { state.euDraft = { name: $('#eu-name').value, phone: $('#eu-phone').value }; state.euRole = e.target.value; render(); return }
   const t = e.target;
@@ -2402,7 +2422,7 @@ const FORMS = {
   clean(f) {
     const fd = new FormData(f), q = { scope: fd.get('scope'), before: new Date(fd.get('before') + 'T00:00:00').getTime(), withDue: fd.get('withDue') === 'on' };
     state.cleanDraft = { scope: q.scope, before: fd.get('before'), withDue: q.withDue };
-    call('cleanOrders', Object.assign({ dry: true }, q)).then(j => { state.clean = Object.assign({ count: j.count }, q); render() }).catch(e => toast(e.message));
+    state.clean = Object.assign({ sel: new Set(cleanMatches(q).map(o => o.id)) }, q); render();
   },
   settings(f) {
     const fd = new FormData(f), ds = fd.get('districts').split(/\n|،|,/).map(x => x.trim()).filter(Boolean);
