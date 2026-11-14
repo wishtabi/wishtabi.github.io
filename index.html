@@ -52,7 +52,10 @@ p{margin:0}
 
 /* header */
 .top{position:sticky;top:0;z-index:20;background:var(--navy);color:var(--on-navy);display:flex;align-items:center;gap:10px;padding:10px 14px;min-height:60px}
-.brand{display:flex;align-items:center;flex:1}
+.brand{display:flex;align-items:center;flex:1;gap:8px}
+.ver{font-size:10.5px;font-weight:700;color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:1px 7px;align-self:flex-end;margin-bottom:4px;white-space:nowrap;cursor:default}
+.ver.old{color:#fff;background:var(--bad);border-color:var(--bad)}
+.verline{text-align:center;font-size:11.5px;color:var(--muted);margin-top:14px}
 .logo{display:inline-flex;align-items:center;gap:4px;font-weight:800;font-size:24px;letter-spacing:0}
 .logo svg{width:28px;height:28px}
 .htitle{flex:1;font-weight:700;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -295,6 +298,9 @@ details.more[open] summary{margin-bottom:12px}
 .pitem{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;text-align:start;width:100%}
 .pitem.on{border-color:var(--accent);background:var(--accent-soft)}
 .pitem .who-av{width:34px;height:34px}
+.who-av.img{width:38px;height:38px;background:#fff;overflow:hidden;border:2px solid rgba(255,255,255,.85)}.who-av.img img{width:100%;height:100%;object-fit:cover;display:block}
+.logo-prev{width:96px;height:96px;border-radius:22px;border:1px solid var(--line);background:var(--bg);display:grid;place-items:center;overflow:hidden;color:var(--muted);font-size:12px;text-align:center;flex:none}.logo-prev img{width:100%;height:100%;object-fit:cover}
+.logo-row{display:flex;gap:14px;align-items:center}
 .pitem .pi-txt{display:flex;flex-direction:column;flex:1;min-width:0}
 .pitem .cnt{flex:none}
 [hidden]{display:none!important}
@@ -387,6 +393,8 @@ details.orig span{font-size:13px;color:var(--muted)}
    البيانات كلها على الخادم (Google Sheets عبر Apps Script).
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
+/* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
+const APP_VERSION = '2.1';
 const API_URL = 'https://script.google.com/macros/s/AKfycbznWE9rT2Jv8LhJvek3hIe04uadL6bF6WDL_S_pltjmNCdQJsEAcTm7QFTJWOl_l1w/exec';
 
 const LS_TOKEN = 'weshtabi_token', LS_API = 'weshtabi_api';
@@ -1201,9 +1209,23 @@ function render() {
   document.querySelectorAll('details[data-more]').forEach(d => d.addEventListener('toggle', () => { state.moreOpen[d.dataset.more] = d.open })); initMaps(); locStatus();
   if (state.autoLocate && document.querySelector('[data-map]')) { state.autoLocate = false; setTimeout(locateMe, 300) }
 }
+/* شعار المحل: يُجلب مرة ويُحفظ في الجهاز، ويتجدد إذا غيّره صاحب المحل */
+const LS_LOGO = 'weshtabi_logo';
+let logoCache = (() => { try { return JSON.parse(lsGet(LS_LOGO) || 'null') } catch (e) { return null } })(), logoFetching = false;
+function shopLogo(u) {
+  if (!u || u.role !== 'provider' || !u.logoV) return '';
+  if (logoCache && logoCache.id === u.id && String(logoCache.v) === String(u.logoV)) return logoCache.src;
+  if (!logoFetching) { logoFetching = true; call('getLogo', {}).then(j => { logoCache = { id: u.id, v: j.logoV, src: j.logo }; try { lsSet(LS_LOGO, JSON.stringify(logoCache)) } catch (e) { } render() }).catch(() => { }).finally(() => { logoFetching = false }) }
+  return logoCache && logoCache.id === u.id ? logoCache.src : '';
+}
+function verBadge() {
+  const sv = (db && db.ver) || (state.config && state.config.ver) || '';
+  const old = db ? sv !== APP_VERSION : !!sv && sv !== APP_VERSION;
+  return `<span class="ver ${old ? 'old' : ''}" title="${old ? `الواجهة ${APP_VERSION} والخادم ${sv}: حدّث النشر في Apps Script` : `الإصدار ${APP_VERSION}`}">v${APP_VERSION}${old ? ` · خادم ${sv || 'قديم'}` : ''}</span>`;
+}
 function header(u, top) {
-  const start = top ? `<button class="iconbtn" data-act="back" aria-label="رجوع">${icon('back')}</button><div class="htitle">${esc(titleOf(top))}</div>` : `<div class="brand">${LOGO}</div>`;
-  return `<header class="top">${start}${EXT.head(u, top)}<button class="who" data-act="sheet" data-type="me" aria-label="حسابي"><span class="who-av">${esc(((u.staff ? u.staff.name : u.name) || '؟').trim()[0])}</span><span class="who-txt"><b>${esc(u.staff ? u.staff.name : u.name)}</b><small>${u.staff ? `موظف · ${esc(u.name)}` : ROLE[u.role]}</small></span></button></header>`;
+  const start = top ? `<button class="iconbtn" data-act="back" aria-label="رجوع">${icon('back')}</button><div class="htitle">${esc(titleOf(top))}</div>` : `<div class="brand">${LOGO}${verBadge()}</div>`;
+  return `<header class="top">${start}${EXT.head(u, top)}<button class="who" data-act="sheet" data-type="me" aria-label="حسابي">${shopLogo(u) ? `<span class="who-av img"><img src="${shopLogo(u)}" alt="شعار ${esc(u.name)}"></span>` : `<span class="who-av">${esc(((u.staff ? u.staff.name : u.name) || '؟').trim()[0])}</span>`}<span class="who-txt"><b>${esc(u.staff ? u.staff.name : u.name)}</b><small>${u.staff ? `موظف · ${esc(u.name)}` : ROLE[u.role]}</small></span></button></header>`;
 }
 function titleOf(t) { switch (t.v) { case 'provider': return P(t.id)?.name || ''; case 'category': return CAT(t.id).name; case 'checkout': return 'تأكيد الطلب'; case 'order': return `طلب #${t.id}` } return '' }
 function nav(u) {
@@ -1272,7 +1294,7 @@ function catPicker(key, sel) {
 }
 function authView() {
   const districts = state.config?.districts || ['السعادة'], r = state.reg;
-  const hero = `<div class="auth-hero">${LOGO}<p>كل خدمات حيّك في مكان واحد</p></div>`;
+  const hero = `<div class="auth-hero">${LOGO}<p>كل خدمات حيّك في مكان واحد</p><span class="ver" style="align-self:center;margin:6px 0 0">v${APP_VERSION}</span></div>`;
   if (state.auth === 'login') return `<div class="auth">${hero}<div class="auth-body stack"><section class="card"><h2>تسجيل الدخول</h2>
     <form data-form="login" class="stack">
       <label class="fld" for="l-phone"><span>رقم الجوال</span><input id="l-phone" name="phone" type="tel" inputmode="numeric" dir="ltr" placeholder="05xxxxxxxx" autocomplete="tel" required></label>
@@ -1773,6 +1795,10 @@ VIEWS.p_shop = u => {
       <label class="toggle-row" for="s-courier"><span><b>التوصيل عن طريق مندوب</b><small class="muted">المندوب يستلم من المحل ويحصّل من العميل</small></span><input type="checkbox" id="s-courier" name="usesCourier" ${u.usesCourier ? 'checked' : ''}></label>`}
     <div class="field-label">الأحياء اللي تخدمها</div><div class="checks">${db.settings.districts.map((d, i) => `<label for="s-d${i}"><input type="checkbox" id="s-d${i}" name="districts" value="${esc(d)}" ${u.districts.includes(d) ? 'checked' : ''}>${esc(d)}</label>`).join('')}</div>
     <button class="btn dark block">حفظ</button></form>`) +
+  card('شعار المحل', `<div class="logo-row"><div class="logo-prev">${shopLogo(u) ? `<img src="${shopLogo(u)}" alt="شعار المحل">` : 'بدون شعار'}</div>
+    <div class="stack" style="gap:8px;flex:1"><p class="muted sm" style="margin:0">صورة اسم المحل أو شعاره، تظهر في أعلى التطبيق لك ولموظفينك. الأفضل صورة مربعة.</p>
+    <label class="btn ${u.logoV ? 'ghost' : 'primary'} block" for="logo-file" style="cursor:pointer">${icon('plus', 'sm')} ${u.logoV ? 'تغيير الشعار' : 'ارفع الشعار'}</label><input type="file" id="logo-file" accept="image/*" hidden>
+    ${u.logoV ? `<button class="btn danger block" data-act="delLogo">${icon('trash', 'sm')} حذف الشعار</button>` : ''}</div></div>`) +
   card('موقع المحل', `<p class="sm">${hasLoc(u.loc) ? '<span class="tag good">محدد على الخريطة</span> المندوب والعملاء يشوفون موقع محلك ويوصلون له بالخرائط.' : '<span class="tag warn">غير محدد</span> حدد موقع محلك عشان يوصلك المندوب، ويشوف العملاء كم يبعد عنهم.'}</p>
     <button class="btn ${hasLoc(u.loc) ? 'ghost' : 'primary'} block" data-act="sheet" data-type="shopLoc">${icon('pin', 'sm')} ${hasLoc(u.loc) ? 'تعديل الموقع' : 'حدد موقع المحل'}</button>`) + staffCard() + accountCard();
 };
@@ -1988,6 +2014,7 @@ const ACT = {
   scrim(d, e) { if (e.target.classList.contains('scrim')) { state.sheet = null; render() } },
   pickcat(d) { state.compose.cat = d.keep ? d.id : state.compose.cat === d.id ? '' : d.id; state.compose.scope = 'fav'; render() },
   scope(d) { state.compose.scope = d.k; render() },
+  delLogo() { if (!confirm('حذف شعار المحل؟')) return; run('setLogo', { logo: '' }, 'تم حذف الشعار', () => { logoCache = null; lsSet(LS_LOGO, '') }) },
   staffSt(d) { run('staffStatus', { userId: d.id, status: d.k }, d.k === 'active' ? 'تم تفعيل الموظف' : 'تم إيقاف الموظف') },
   delStaff(d) { const x = (db.staff || []).find(y => y.id === d.id); if (!confirm(`حذف ${x ? x.name : 'الموظف'}؟ طلباته المنفّذة تبقى محسوبة باسمه.`)) return; run('delStaff', { userId: d.id }, 'تم حذف الموظف') },
   per(d) { state.sub.per = d.k; state.perOff = 0; render() },
@@ -2073,19 +2100,24 @@ document.addEventListener('change', e => {
     render(); return;
   }
   if (t.name === 'regDistricts') { const ds = state.reg.districts, v = t.value; if (t.checked) { if (!ds.includes(v)) ds.push(v) } else ds.splice(ds.indexOf(v), 1); return }
+  if (t.id === 'logo-file') { const f = t.files && t.files[0]; if (!f) return; shrinkImage(f, 256, 40000, true).then(u => run('setLogo', { logo: u }, 'تم حفظ الشعار', () => { logoCache = { id: me().id, v: 'new', src: u } })).catch(() => toast('تعذّرت قراءة الصورة، جرّب صورة ثانية')); t.value = ''; return }
   if (t.id === 'c-photo') { const f = t.files && t.files[0]; if (!f) return; shrinkImage(f).then(u => { state.compose.photo = u; render() }).catch(() => toast('تعذّرت قراءة الصورة، جرّب صورة ثانية')) }
 });
-function shrinkImage(file) {
+function shrinkImage(file, maxSide, limit, logo) {
   return new Promise((res, rej) => {
     const r = new FileReader();
     r.onload = () => {
       const img = new Image();
       img.onload = () => {
-        let side = 720, q = .7, url = '';
+        let side = maxSide || 720, q = logo ? .9 : .7, url = '';
         for (let i = 0; i < 8; i++) {
           const s = Math.min(1, side / Math.max(img.width, img.height)), c = document.createElement('canvas');
-          c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-          url = c.toDataURL('image/jpeg', q); if (url.length < 45000) return res(url);
+          c.width = Math.round(img.width * s); c.height = Math.round(img.height * s); const g = c.getContext('2d');
+          if (logo) { url = c.toDataURL('image/webp', q); }
+          if (!logo || !url.startsWith('data:image/webp')) { g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height) }
+          g.drawImage(img, 0, 0, c.width, c.height);
+          url = logo ? c.toDataURL('image/webp', q) : ''; if (!url.startsWith('data:image/webp')) url = c.toDataURL('image/jpeg', q);
+          if (url.length < (limit || 45000)) return res(url);
           side *= .82; q = Math.max(.4, q - .07);
         }
         rej(new Error('big'));
