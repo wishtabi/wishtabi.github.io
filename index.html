@@ -302,6 +302,15 @@ details.more[open] summary{margin-bottom:12px}
 .pitem.on{border-color:var(--accent);background:var(--accent-soft)}
 .pitem .who-av{width:34px;height:34px}
 .hlogo{width:30px;height:30px;border-radius:8px;object-fit:cover;background:#fff;vertical-align:middle;margin-inline-end:8px}
+.qrcard{display:block;width:100%;max-width:360px;margin:0 auto;border-radius:18px;box-shadow:var(--shadow)}
+.sharegrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.promo{background:linear-gradient(135deg,var(--navy),#2c3e5c);color:#fff;border-radius:var(--r);padding:14px 16px;position:relative}
+.promo h3{margin:0 0 4px;font-size:15.5px}.promo p{margin:0 0 10px;font-size:13px;opacity:.85}
+.promo .x{position:absolute;top:8px;inset-inline-end:8px;border:0;background:rgba(255,255,255,.15);color:#fff;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;line-height:1}
+.promo .chips{display:flex;flex-wrap:wrap;gap:6px}.promo .chip{background:rgba(255,255,255,.14);color:#fff;border:0}
+.guestbar{position:sticky;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding:10px 14px;display:flex;gap:10px;align-items:center;box-shadow:0 -6px 18px rgba(0,0,0,.06)}
+.guestbar p{flex:1;margin:0;font-size:13px}
+.reffor{background:var(--accent-soft);border-radius:12px;padding:10px 12px;font-size:13.5px;display:flex;gap:10px;align-items:center}
 .pav.lg{background:#fff;border:1px solid var(--line);overflow:hidden;padding:0}.pav.lg img{width:100%;height:100%;object-fit:cover;display:block}
 .who-av.img{width:38px;height:38px;background:#fff;overflow:hidden;border:2px solid rgba(255,255,255,.85)}.who-av.img img{width:100%;height:100%;object-fit:cover;display:block}
 .logo-prev{width:96px;height:96px;border-radius:22px;border:1px solid var(--line);background:var(--bg);display:grid;place-items:center;overflow:hidden;color:var(--muted);font-size:12px;text-align:center;flex:none}.logo-prev img{width:100%;height:100%;object-fit:cover}
@@ -399,8 +408,8 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '2.6';
-const NEED_SERVER = '2.5'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
+const APP_VERSION = '2.7';
+const NEED_SERVER = '2.7'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
 const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
 const API_URL = 'https://script.google.com/macros/s/AKfycbznWE9rT2Jv8LhJvek3hIe04uadL6bF6WDL_S_pltjmNCdQJsEAcTm7QFTJWOl_l1w/exec';
 
@@ -457,6 +466,7 @@ IC.key = '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>';
 IC.refresh = '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>';
 IC.users = '<circle cx="9" cy="8" r="3.5"/><path d="M3 20c1-3.5 3.5-5.5 6-5.5s5 2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5c2.5 0 4.2 1.8 5 4.5"/>';
 IC.check = '<path d="M5 12.5l4.5 4.5L19 7"/>';
+IC.qr = '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 19h2M19 14h2"/>';
 const icon = (n, c = '') => `<svg class="ic ${c}" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 const LOGO = `<span class="logo" aria-label="وش تبي"><span>وش تبي</span><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3 6a4 4 0 0 1 4-4h14a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4h-7l-6 5v-5H7a4 4 0 0 1-4-4z" fill="#EB8420"/><text x="14" y="16.5" text-anchor="middle" font-size="15" font-weight="800" fill="#fff" font-family="Tajawal,sans-serif">؟</text></svg></span>`;
 
@@ -1080,11 +1090,24 @@ async function run(action, payload, okMsg, after) {
   } catch (e) { toast(e.message); if (!token) render(); return null }
   finally { state.busy = false; document.body.classList.remove('busy') }
 }
+async function openScanned(pid) {
+  const u = me();
+  if (u.role !== 'customer') return;
+  const p = P(pid);
+  if (!p) { toast('المحل غير متاح حالياً'); return }
+  if (!isFav(pid)) await run('toggleFavorite', { pid }, `أضفنا ${p.name} لمفضلتك`);
+  lsSet(LS_REF, '');
+  go('provider', pid);
+}
 function logoutLocal() {
   token = ''; lsSet(LS_TOKEN, ''); db = null; alertSeen = null;
   Object.assign(state, { boot: 'auth', auth: 'login', tab: '', stack: [], cart: null, sheet: null, menus: {}, photos: {} });
 }
 const EXT = { head: () => '', userTop: () => '', userBtn: () => '', meBtns: () => '', sheets: {}, on: false };
+/* الباركود: الرابط ?s=<رقم المحل> يفتح صفحة المحل، ويُحفظ المصدر لين يسجّل */
+const LS_REF = 'weshtabi_ref';
+const SCAN = (() => { try { const q = new URLSearchParams(location.search), v = q.get('s'); if (v) { lsSet(LS_REF, v); q.delete('s'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash) } return v || '' } catch (e) { return '' } })();
+const shopLink = pid => `${location.origin}${location.pathname}?s=${encodeURIComponent(pid)}`;
 const isTyping = () => { const a = document.activeElement; return a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) };
 async function quietSync() {
   if (state.boot !== 'ready' || state.busy || state.sheet || isTyping() || document.visibilityState !== 'visible') return;
@@ -1206,6 +1229,7 @@ function render() {
   if (state.boot === 'loading') { app.innerHTML = `<div class="center full">${LOGO}<div class="spin" role="status" aria-label="جارٍ التحميل"></div></div>`; return }
   if (state.boot === 'setup') { app.innerHTML = setupView(); return }
   if (state.boot === 'error') { app.innerHTML = `<div class="center full">${LOGO}<p>${esc(state.bootError)}</p><button class="btn primary" data-act="retry">${icon('refresh', 'sm')} حاول مرة ثانية</button>${!API_URL ? `<button class="link" data-act="changeApi">تغيير رابط الخادم</button>` : ''}</div>`; return }
+  if (state.boot === 'guest') { app.innerHTML = guestView(); applyFilters(); hscrolls(); return }
   if (state.boot === 'auth' || !db) { app.innerHTML = authView(); return }
   const u = me();
   if (u.status !== 'active') { app.innerHTML = header(u, null) + `<main class="main">${pendingView(u)}</main>` + sheetHtml(); return }
@@ -1315,6 +1339,19 @@ function catPicker(key, sel) {
   const grp = (kind, title) => `<div class="field-label">${title}</div><div class="checks">${CATS.filter(c => kindOf(c.id) === kind).map(c => `<label for="${key}-c-${c.id}" class="${k && k !== kind ? 'dim' : ''}"><input type="checkbox" id="${key}-c-${c.id}" name="${key}Cats" value="${c.id}" ${sel.includes(c.id) ? 'checked' : ''}>${c.name}</label>`).join('')}</div>`;
   return `<div class="stack" style="gap:8px">${grp('shop', 'محل (توصيل أو استلام)')}${grp('visit', 'فني (زيارة في الموقع)')}<p class="muted xs">تقدر تختار أكثر من خدمة من نفس النوع، مثل سباكة وكهرباء، أو تموينات وخضار.</p></div>`;
 }
+/* صفحة المحل للزائر قبل التسجيل */
+function guestView() {
+  const g = state.guest, p = g.shop, c = CAT(p.cat), items = g.menu || [];
+  const av = g.logo ? `<span class="pav lg"><img src="${g.logo}" alt="شعار ${esc(p.name)}"></span>` : `<span class="pav">${icon(c.icon)}</span>`;
+  const row = i => `<div class="item" data-s="${esc(norm(i.name))}"><span class="nm"><b>${esc(i.name)}</b><span class="muted sm num">${isSvc(p.cat) ? 'يبدأ من ' : ''}${money(i.price)}</span></span><button class="btn ghost sm" data-act="guestOrder">${isSvc(p.cat) ? 'اطلب' : 'أضف'}</button></div>`;
+  return `<header class="top"><div class="brand">${LOGO}${verBadge()}</div><button class="who" data-act="guestLogin"><span class="who-txt"><b>دخول</b><small>عندي حساب</small></span></button></header>
+  <main class="main stack">
+    <section class="card"><div class="phead">${av}<div style="flex:1"><h1>${esc(p.name)}</h1><p class="muted sm">${catNames(p)}${p.hours ? ` · ${esc(p.hours)}` : ''} · <span class="star">${ratingText(p)}</span></p></div></div></section>
+    <div class="promo"><h3>اطلب من ${esc(p.name)} وأنت في بيتك</h3><p>سجّل برقم جوالك في ثواني، واطلب من كل محلات حيّك: بقالة وخضار ومخابز، وسباكة وكهرباء وتكييف، والدفع عند الاستلام.</p><button class="btn primary sm" data-act="guestOrder">سجّل الحين</button></div>
+    ${items.length ? menuBrowser(p, items, row, 'gm') : empty('القائمة قيد التجهيز. سجّل واكتب طلبك للمحل مباشرة.')}
+  </main>
+  <div class="guestbar"><p>للطلب من <b>${esc(p.name)}</b> سجّل حساب مجاني</p><button class="btn primary" data-act="guestOrder">سجّل واطلب</button></div>`;
+}
 function authView() {
   const districts = state.config?.districts || ['السعادة'], r = state.reg;
   const hero = `<div class="auth-hero">${LOGO}<p>كل خدمات حيّك في مكان واحد</p><span class="ver" style="align-self:center;margin:6px 0 0">v${APP_VERSION}</span></div>`;
@@ -1327,7 +1364,8 @@ function authView() {
     <section class="card center-t"><p>ما عندك حساب؟</p><button class="btn ghost block" data-act="authMode" data-k="register">أنشئ حساباً جديداً</button></section></div></div>`;
   const roleSeg = `<div class="seg">${[['customer', 'أطلب خدمة'], ['provider', 'أقدم خدمة'], ['courier', 'مندوب توصيل']].map(([k, l]) => `<button type="button" class="${r.role === k ? 'on' : ''}" data-act="regRole" data-k="${k}">${l}</button>`).join('')}</div>`;
   const f = (id, bind, label, attrs = '') => `<label class="fld" for="${id}"><span>${label}</span><input id="${id}" data-bind="reg.${bind}" value="${esc(r[bind])}" ${attrs}></label>`;
-  return `<div class="auth">${hero}<div class="auth-body stack"><section class="card"><h2>حساب جديد</h2>${roleSeg}
+  const refShop = state.guest && state.guest.shop;
+  return `<div class="auth">${hero}<div class="auth-body stack">${refShop ? `<div class="reffor">${icon('star', 'sm')}<span>بعد التسجيل ينضاف <b>${esc(refShop.name)}</b> لمفضلتك، وتطلب منه على طول.</span><button class="link" data-act="backGuest">رجوع للمحل</button></div>` : ''}<section class="card"><h2>حساب جديد</h2>${roleSeg}
     <form data-form="register" class="stack" novalidate>
       ${f('r-name', 'name', r.role === 'provider' ? 'اسم المحل أو الفني' : 'الاسم', 'autocomplete="name" required')}
       ${f('r-phone', 'phone', 'رقم الجوال', 'type="tel" inputmode="numeric" dir="ltr" placeholder="05xxxxxxxx" autocomplete="tel" required')}
@@ -1421,12 +1459,24 @@ function composeForm(mode) {
    طالب الخدمة
    ============================================================ */
 const VIEWS = {};
+/* رسالة تعريفية بخدمات الحي: تظهر للعميل مرة كل 3 أيام، ويقدر يقفلها */
+const LS_PROMO = 'weshtabi_promo';
+function promoCard(u) {
+  const last = +(lsGet(LS_PROMO) || 0);
+  if (Date.now() - last < 3 * 864e5) return '';
+  const used = new Set(db.orders.filter(o => o.customerId === u.id).map(o => o.cat));
+  const d = u.address?.district || '', avail = CATS.filter(c => !used.has(c.id) && providersIn(d).some(p => catsOf(p).includes(c.id)));
+  if (!avail.length) return '';
+  return `<div class="promo"><button class="x" data-act="promoX" aria-label="إغلاق">×</button><h3>${used.size ? 'جرّبت هذي الخدمات في حيّك؟' : 'كل خدمات حيّك هنا'}</h3><p>اطلب من محلات حيّك وفنيّيه، وادفع عند الاستلام.</p>
+    <div class="chips">${avail.slice(0, 6).map(c => `<button class="chip" data-act="open" data-v="category" data-id="${c.id}">${icon(c.icon, 'xs')} ${c.name}</button>`).join('')}</div></div>`;
+}
 VIEWS.home = u => {
   const hr = new Date().getHours(), greet = hr < 12 ? 'صباح الخير' : 'مساء الخير', d = u.address?.district || '';
   const active = db.orders.filter(o => o.customerId === u.id && (ACTIVE.includes(o.status) || o.status === 'delivered')).sort(byNew);
   const favs = favProviders(), provs = providersIn(d).sort((a, b) => (isFav(b.id) - isFav(a.id)) || (avg(b) - avg(a)));
   return `<section class="hello"><h1>${greet} يا ${esc(u.name)}</h1><p class="muted sm">${icon('pin', 'xs')} ${d ? `حي ${esc(d)}` : 'أكمل عنوانك من حسابي'}</p></section>
   ${defAddr() && !hasLoc(defAddr()) ? `<section class="card"><div class="loc-row"><span class="pav">${icon('pin')}</span><span style="flex:1"><b>حدد موقع ${esc(defAddr().label)} على الخريطة</b><br><span class="muted sm">عشان يوصلك المندوب والفني بدون اتصالات.</span></span></div><button class="btn primary block" data-act="sheet" data-type="addr" data-id="${defAddr().id}">${icon('pin', 'sm')} حدد الموقع</button></section>` : ''}
+  ${promoCard(u)}
   <section class="card ask"><h2 class="ask-title">وش تبي؟</h2>${composeForm('home')}</section>
   ${favs.length ? `<section><div class="sec-h"><h2>مفضلتي</h2><button class="link" data-act="tab" data-k="favs">الكل</button></div><div class="favrow">${favs.map(p => `<button class="favchip" data-act="open" data-v="provider" data-id="${p.id}">${provAv(p, CAT(p.cat).icon)}<span><b>${esc(p.name)}</b><small>${CAT(p.cat).name}</small></span></button>`).join('')}</div></section>` : ''}
   ${active.length ? `<section><div class="sec-h"><h2>طلباتك الجارية</h2><button class="link" data-act="tab" data-k="orders">كل طلباتي</button></div><div class="list">${active.slice(0, 3).map(orderCard).join('')}</div></section>` : ''}
@@ -1818,6 +1868,8 @@ VIEWS.p_shop = u => {
       <label class="toggle-row" for="s-courier"><span><b>التوصيل عن طريق مندوب</b><small class="muted">المندوب يستلم من المحل ويحصّل من العميل</small></span><input type="checkbox" id="s-courier" name="usesCourier" ${u.usesCourier ? 'checked' : ''}></label>`}
     <div class="field-label">الأحياء اللي تخدمها</div><div class="checks">${db.settings.districts.map((d, i) => `<label for="s-d${i}"><input type="checkbox" id="s-d${i}" name="districts" value="${esc(d)}" ${u.districts.includes(d) ? 'checked' : ''}>${esc(d)}</label>`).join('')}</div>
     <button class="btn dark block">حفظ</button></form>`) +
+  card('باركود المحل', `<p class="muted sm">اطبعه عند الكاشير أو أرسله لزبائنك. اللي يمسحه يفتح صفحة محلك، ولما يسجّل ينضاف محلك لمفضلته.${db.refCount ? ` <b>سجّل عن طريقك: ${db.refCount} ${db.refCount === 1 ? 'عميل' : 'عملاء'}</b>` : ''}</p>
+    <button class="btn primary block" data-act="showQr">${icon('qr', 'sm')} اعرض باركود المحل وشاركه</button>`) +
   card('شعار المحل', `<div class="logo-row"><div class="logo-prev">${shopLogo(u) ? `<img src="${shopLogo(u)}" alt="شعار المحل">` : 'بدون شعار'}</div>
     <div class="stack" style="gap:8px;flex:1"><p class="muted sm" style="margin:0">صورة اسم المحل أو شعاره، تظهر في أعلى التطبيق لك ولموظفينك. الأفضل صورة مربعة.</p>
     <button type="button" class="btn ${u.logoV ? 'ghost' : 'primary'} block" data-act="pickLogo">${icon('plus', 'sm')} ${u.logoV ? 'تغيير الشعار' : 'ارفع الشعار'}</button>
@@ -1887,7 +1939,7 @@ VIEWS.a_users = u => {
       acts.push(`<div class="chips">${b.join('')}</div>`);
     }
     const st = { active: 'good', pending: 'info', blocked: 'bad', rejected: 'bad' }[x.status];
-    return `<div class="card" data-s="${esc(norm(x.name + ' ' + x.phone))}"><div class="ohead-top"><div><b>${esc(x.name)}</b>${(() => { const d = (db.orders || []).filter(o => isDue(o) && ['delivered', 'closed'].includes(o.status) && (o.customerId === x.id || o.providerId === x.id)), t = d.reduce((s, o) => s + o.total, 0); return d.length ? ` <span class="tag bad">${x.role === 'customer' ? 'عليه' : 'له'} آجل ${money(t)}</span>` : '' })()}<p class="muted sm">${ROLE[roleKey(x)]}${x.role === 'staff' ? ` · ${esc(((db.users || []).find(y => y.id === x.shopId) || {}).name || '')}` : ''}${x.role === 'provider' ? ` · ${catNames(x)} · ${x.districts.map(esc).join('، ')}` : x.district ? ` · حي ${esc(x.district)}` : ''}${x.vehicle ? ` · ${esc(x.vehicle)}` : ''}</p>
+    return `<div class="card" data-s="${esc(norm(x.name + ' ' + x.phone))}"><div class="ohead-top"><div><b>${esc(x.name)}</b>${(() => { const d = (db.orders || []).filter(o => isDue(o) && ['delivered', 'closed'].includes(o.status) && (o.customerId === x.id || o.providerId === x.id)), t = d.reduce((s, o) => s + o.total, 0); return d.length ? ` <span class="tag bad">${x.role === 'customer' ? 'عليه' : 'له'} آجل ${money(t)}</span>` : '' })()}<p class="muted sm">${ROLE[roleKey(x)]}${x.role === 'staff' ? ` · ${esc(((db.users || []).find(y => y.id === x.shopId) || {}).name || '')}` : ''}${x.ref ? ` · جا عن طريق ${esc(((db.users || []).find(y => y.id === x.ref) || {}).name || 'محل')}` : ''}${x.role === 'provider' ? ` · ${catNames(x)} · ${x.districts.map(esc).join('، ')}` : x.district ? ` · حي ${esc(x.district)}` : ''}${x.vehicle ? ` · ${esc(x.vehicle)}` : ''}</p>
       <p class="muted xs">${phone(x.phone)} · ${ago(x.createdAt)}${x.locked ? ' · <b style="color:var(--bad)">مقفل بعد محاولات خاطئة</b>' : ''}</p></div><span class="pill t-${st}">${STATUS_U[x.status]}</span></div>${acts.join('')}</div>`;
   };
   return seg('a_users', [['pending', 'بانتظار الاعتماد', pend.length], ['all', 'الكل', 0]]) +
@@ -1965,6 +2017,10 @@ function sheetHtml() {
     <div class="row2"><label class="fld" for="pn-new"><span>الرمز الجديد</span><input id="pn-new" name="newPin" type="password" inputmode="numeric" maxlength="4" dir="ltr" required></label>
     <label class="fld" for="pn-new2"><span>أعد كتابته</span><input id="pn-new2" name="newPin2" type="password" inputmode="numeric" maxlength="4" dir="ltr" required></label></div>
     <button class="btn primary block">حفظ الرمز</button></form>`;
+  if (s.type === 'qr') { const q = state.qr; h = `<h2>باركود ${esc(u.name)}</h2>${!q ? '<div class="center" style="padding:40px 0"><div class="spin"></div></div>' : q.err ? `<p class="muted">${q.err}</p><button class="btn primary block" data-act="showQr">حاول مرة ثانية</button>` : `<img class="qrcard" src="${q.png}" alt="باركود ${esc(q.name)}">
+    <p class="muted sm center-t" style="margin:4px 0 0">اللي يمسحه يفتح صفحة محلك، ولما يسجّل ينضاف محلك لمفضلته.</p>
+    <button class="btn primary block" data-act="qrShare" data-k="share">${icon('send', 'sm')} مشاركة… (واتساب، بلوتوث، رسائل وغيرها)</button>
+    <div class="sharegrid"><button class="btn ghost" data-act="qrShare" data-k="wa">واتساب</button><button class="btn ghost" data-act="qrShare" data-k="sms">رسالة نصية</button><button class="btn ghost" data-act="qrShare" data-k="dl">تحميل الصورة</button><button class="btn ghost" data-act="qrShare" data-k="copy">نسخ الرابط</button></div>`}` }
   if (s.type === 'staff') h = `<h2>موظف جديد</h2><p class="muted sm">بلّغ الموظف برقمه والرمز، ويدخل بهم من شاشة الدخول العادية.</p><form data-form="staff" class="stack">
     <label class="fld" for="sf-name"><span>اسم الموظف</span><input id="sf-name" name="name" required maxlength="60"></label>
     <label class="fld" for="sf-phone"><span>رقم جواله</span><input id="sf-phone" name="phone" type="tel" dir="ltr" inputmode="numeric" maxlength="10" required placeholder="05xxxxxxxx"></label>
@@ -2057,6 +2113,29 @@ const ACT = {
       if (j) toast(me().logoV ? 'تم حفظ الشعار' : 'ما انحفظ الشعار في الخادم، تأكد إن Code.gs محدّث');
     }).catch(() => toast('تعذّرت قراءة الصورة، جرّب صورة PNG أو JPG')) });
   },
+  guestOrder() { state.boot = 'auth'; state.auth = 'register'; state.reg.role = 'customer'; render(); window.scrollTo(0, 0) },
+  guestLogin() { state.boot = 'auth'; state.auth = 'login'; render() },
+  backGuest() { state.boot = 'guest'; render() },
+  promoX() { lsSet(LS_PROMO, String(Date.now())); render() },
+  async qrShare(d) {
+    const q = state.qr; if (!q) return;
+    const text = `اطلب من ${q.name} عبر تطبيق وش تبي: ${q.url}`;
+    if (d.k === 'wa') { window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank'); return }
+    if (d.k === 'sms') { location.href = 'sms:?&body=' + encodeURIComponent(text); return }
+    if (d.k === 'copy') { try { await navigator.clipboard.writeText(q.url); toast('تم نسخ الرابط') } catch (e) { toast(q.url) } return }
+    if (d.k === 'dl') { const a = document.createElement('a'); a.href = q.png; a.download = `باركود-${q.name}.png`; document.body.appendChild(a); a.click(); a.remove(); return }
+    try {
+      const blob = await (await fetch(q.png)).blob(), file = new File([blob], `wishtabi-${q.pid}.png`, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: q.name, text });
+      else if (navigator.share) await navigator.share({ title: q.name, text, url: q.url });
+      else { toast('جهازك ما يدعم المشاركة المباشرة، استخدم واتساب أو التحميل') }
+    } catch (e) { if (e && e.name !== 'AbortError') toast('ما تمت المشاركة') }
+  },
+  async showQr() {
+    const u = me(); state.sheet = { type: 'qr' }; state.qr = null; render();
+    try { state.qr = await makeQrCard(u); } catch (e) { state.qr = { err: 'تعذّر إنشاء الباركود. تأكد من الاتصال بالإنترنت وحاول مرة ثانية' } }
+    if (state.sheet && state.sheet.type === 'qr') render();
+  },
   delLogo() { if (!confirm('حذف شعار المحل؟')) return; run('setLogo', { logo: '' }, 'تم حذف الشعار', () => { delete logoStore[me().id]; try { lsSet(LS_LOGO, JSON.stringify(logoStore)) } catch (e) { } }) },
   staffPerm(d) { run('staffStatus', { userId: d.id, perm: d.k }, d.k ? 'صار مدير محل' : 'رجع موظفاً') },
   staffSt(d) { run('staffStatus', { userId: d.id, status: d.k }, d.k === 'active' ? 'تم تفعيل الموظف' : 'تم إيقاف الموظف') },
@@ -2147,6 +2226,36 @@ document.addEventListener('change', e => {
   if (t.name === 'regDistricts') { const ds = state.reg.districts, v = t.value; if (t.checked) { if (!ds.includes(v)) ds.push(v) } else ds.splice(ds.indexOf(v), 1); return }
 });
 /* اختيار ملف: الحقل خارج الصفحة، فما يضيع الاختيار لو تحدّثت الصفحة والنافذة مفتوحة */
+/* بطاقة الباركود: تُرسم في الجهاز، وفي وسطها شعار المحل إذا متاح */
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s) }) }
+const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src });
+async function makeQrCard(u) {
+  if (!window.qrcode) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js');
+  const url = shopLink(u.id), logo = shopLogo(u), qr = qrcode(0, 'H'); qr.addData(url); qr.make();
+  const n = qr.getModuleCount(), W = 1080, H = 1400, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'), font = getComputedStyle(document.body).fontFamily;
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#1b2a44'; g.fillRect(0, 0, W, 230);
+  g.direction = 'rtl'; g.textAlign = 'center'; g.fillStyle = '#ffffff'; g.font = `800 92px ${font}`; g.fillText('وش تبي', W / 2, 125);
+  g.font = `500 38px ${font}`; g.fillStyle = 'rgba(255,255,255,.8)'; g.fillText('كل خدمات حيّك في مكان واحد', W / 2, 190);
+  g.fillStyle = '#1b2a44'; g.font = `800 64px ${font}`; g.fillText(u.name.length > 26 ? u.name.slice(0, 25) + '…' : u.name, W / 2, 330);
+  const box = 780, x0 = (W - box) / 2, y0 = 380, cell = box / (n + 8);
+  g.fillStyle = '#ffffff'; g.fillRect(x0, y0, box, box);
+  g.fillStyle = '#111111';
+  for (let r = 0; r < n; r++) for (let q = 0; q < n; q++) if (qr.isDark(r, q)) g.fillRect(Math.floor(x0 + (q + 4) * cell), Math.floor(y0 + (r + 4) * cell), Math.ceil(cell), Math.ceil(cell));
+  const ls = box * 0.22, lx = W / 2 - ls / 2, ly = y0 + box / 2 - ls / 2, rr = (x, y, w, h, rad) => { g.beginPath(); g.moveTo(x + rad, y); g.arcTo(x + w, y, x + w, y + h, rad); g.arcTo(x + w, y + h, x, y + h, rad); g.arcTo(x, y + h, x, y, rad); g.arcTo(x, y, x + w, y, rad); g.closePath() };
+  if (logo) {
+    const im = await loadImg(logo); g.fillStyle = '#ffffff'; rr(lx - 14, ly - 14, ls + 28, ls + 28, 30); g.fill();
+    g.save(); rr(lx, ly, ls, ls, 22); g.clip(); g.drawImage(im, lx, ly, ls, ls); g.restore();
+  } else {
+    g.fillStyle = '#ffffff'; rr(lx - 10, ly - 10, ls + 20, ls + 20, 30); g.fill(); g.fillStyle = '#e58a00'; rr(lx + ls * .12, ly + ls * .12, ls * .76, ls * .76, 34); g.fill();
+    g.fillStyle = '#ffffff'; g.font = `900 ${Math.round(ls * .55)}px ${font}`; g.fillText('؟', W / 2, ly + ls * .7);
+  }
+  g.fillStyle = '#1b2a44'; g.font = `800 52px ${font}`; g.fillText('امسح الباركود واطلب', W / 2, y0 + box + 95);
+  g.fillStyle = '#6b7689'; g.font = `500 34px ${font}`; g.fillText('بقالة · خضار · مخابز · سباكة · كهرباء · تكييف', W / 2, y0 + box + 150);
+  g.direction = 'ltr'; g.font = `600 30px ${font}`; g.fillText(url.replace(/^https?:\/\//, ''), W / 2, H - 40);
+  return { pid: u.id, name: u.name, url, png: c.toDataURL('image/png') };
+}
 function pickFile(cb) {
   let inp = document.getElementById('file-picker');
   if (inp) inp.remove();
@@ -2195,7 +2304,7 @@ const FORMS = {
   login(f) {
     const fd = new FormData(f), ph = digits(fd.get('phone')), pin = digits(fd.get('pin'));
     if (ph.length < 9) { toast('اكتب رقم الجوال'); return } if (pin.length !== 4) { toast('الرمز السري 4 أرقام'); return }
-    run('login', { phone: ph, pin }, () => `أهلاً ${me().name}`, () => { state.boot = 'ready'; state.tab = ''; state.stack = [] });
+    run('login', { phone: ph, pin }, () => `أهلاً ${me().name}`, () => { state.boot = 'ready'; state.tab = ''; state.stack = []; const gr = state.guest && state.guest.shop.id; state.guest = null; if (gr) setTimeout(() => openScanned(gr), 0) });
   },
   register(f) {
     const r = state.reg;
@@ -2206,8 +2315,8 @@ const FORMS = {
     if (r.role === 'provider' && !r.cats.length) { toast('اختر خدمة واحدة على الأقل'); return }
     if (r.role === 'provider' && !r.districts.length) { toast('اختر حياً واحداً على الأقل'); return }
     const districts = state.config?.districts || [];
-    run('register', { role: r.role, name: r.name.trim(), phone: digits(r.phone), pin: digits(r.pin), district: r.district || districts[0], details: r.details.trim(), cat: r.cats[0], cats: r.cats, hours: r.hours.trim(), vehicle: r.vehicle.trim(), districts: r.districts, lang: r.lang },
-      () => me().status === 'active' ? `أهلاً ${me().name}، حسابك جاهز` : 'وصل طلب انضمامك للإدارة', () => { state.boot = 'ready'; state.tab = ''; state.reg = { role: 'customer', name: '', phone: '', pin: '', pin2: '', district: '', details: '', cat: '', cats: [], hours: '', vehicle: '', districts: [], lang: 'ar' } });
+    run('register', { ref: lsGet(LS_REF) || '', role: r.role, name: r.name.trim(), phone: digits(r.phone), pin: digits(r.pin), district: r.district || districts[0], details: r.details.trim(), cat: r.cats[0], cats: r.cats, hours: r.hours.trim(), vehicle: r.vehicle.trim(), districts: r.districts, lang: r.lang },
+      () => me().status === 'active' ? `أهلاً ${me().name}، حسابك جاهز` : 'وصل طلب انضمامك للإدارة', () => { state.boot = 'ready'; state.tab = ''; const gr = state.guest && state.guest.shop.id; state.guest = null; if (gr && me().role === 'customer') setTimeout(() => { lsSet(LS_REF, ''); if (P(gr)) go('provider', gr) }, 0); state.reg = { role: 'customer', name: '', phone: '', pin: '', pin2: '', district: '', details: '', cat: '', cats: [], hours: '', vehicle: '', districts: [], lang: 'ar' } });
   },
   'text-order'(f) {
     const c = state.compose, mode = f.dataset.mode, target = mode === 'target' ? c.target : null;
@@ -2256,8 +2365,13 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.shee
 async function boot() {
   if (!apiUrl) { state.boot = 'setup'; return render() }
   if (token) {
-    try { await call('sync'); state.boot = 'ready'; setAlertBaseline(); return render() }
+    try { await call('sync'); state.boot = 'ready'; setAlertBaseline(); render(); if (SCAN) openScanned(SCAN); return }
     catch (e) { if (token) { state.boot = 'error'; state.bootError = e.message; return render() } }
+  }
+  const ref = SCAN || lsGet(LS_REF);
+  if (ref) {
+    try { const j = await call('shop', { pid: ref }); state.guest = { shop: j.shop, menu: j.menu, logo: j.logo }; state.config = j.config; state.boot = 'guest'; return render() }
+    catch (e) { lsSet(LS_REF, '') }
   }
   try { state.config = (await call('config')).config; state.boot = 'auth' }
   catch (e) { state.boot = 'error'; state.bootError = e.message }
