@@ -70,6 +70,7 @@ p{margin:0}
 .who-txt b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
 .who-txt small{font-size:11.5px;opacity:.75}
 .strip{background:var(--accent-soft);color:var(--ink);font-size:12.5px;text-align:center;padding:6px 14px;position:relative;min-height:34px;display:flex;align-items:center;justify-content:center}
+.devbar{background:repeating-linear-gradient(-45deg,#b42318 0 12px,#c8331f 12px 24px);color:#fff;text-align:center;font-size:12.5px;font-weight:800;padding:5px 10px;letter-spacing:.3px}
 .strip.withqr{padding-inline-end:64px}
 .qrbtn{position:absolute;inset-inline-end:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:5px;border:0;border-radius:10px;background:var(--navy);color:#fff;padding:4px 9px 4px 7px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.15)}
 .qrbtn .ic{width:20px;height:20px}
@@ -415,17 +416,23 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '2.9.1';
-const NEED_SERVER = '2.7'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
+const APP_VERSION = '3.1';
+const NEED_SERVER = '3.1'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
 const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
-const API_URL = 'https://script.google.com/macros/s/AKfycbznWE9rT2Jv8LhJvek3hIe04uadL6bF6WDL_S_pltjmNCdQJsEAcTm7QFTJWOl_l1w/exec';
+/* بيئتان: التشغيل على الرابط الأساسي، والتطوير على /dev/ بنفس الملف */
+const API_PROD = 'https://script.google.com/macros/s/AKfycbznWE9rT2Jv8LhJvek3hIe04uadL6bF6WDL_S_pltjmNCdQJsEAcTm7QFTJWOl_l1w/exec';
+const API_DEV = ''; /* رابط نشر بيئة التطوير */
+const IS_DEV = /\/dev(\/|$)/.test(location.pathname);
+const API_URL = IS_DEV ? API_DEV : API_PROD;
 
 const LS_TOKEN = 'weshtabi_token', LS_API = 'weshtabi_api';
 let apiUrl = API_URL || lsGet(LS_API) || '';
 let token = lsGet(LS_TOKEN) || '';
 let db = null;
-function lsGet(k) { try { return localStorage.getItem(k) } catch (e) { return null } }
-function lsSet(k, v) { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k) } catch (e) { } }
+/* بيانات الجهاز منفصلة لكل بيئة، حتى ما يختلط دخول التطوير بالتشغيل */
+function lsKey(k) { return (/\/dev(\/|$)/.test(location.pathname) ? 'dev_' : '') + k }
+function lsGet(k) { try { return localStorage.getItem(lsKey(k)) } catch (e) { return null } }
+function lsSet(k, v) { try { v ? localStorage.setItem(lsKey(k), v) : localStorage.removeItem(lsKey(k)) } catch (e) { } }
 
 /* ---------- icons ---------- */
 const IC={
@@ -1102,7 +1109,7 @@ async function openScanned(pid) {
   const u = me();
   if (u.role !== 'customer') return;
   const p = P(pid);
-  if (!p) { toast('المحل غير متاح حالياً'); return }
+  if (!p) { lsSet(LS_REF, ''); toast('المحل غير متاح حالياً'); return }
   if (!isFav(pid)) await run('toggleFavorite', { pid }, `أضفنا ${p.name} لمفضلتك`);
   lsSet(LS_REF, '');
   go('provider', pid);
@@ -1233,6 +1240,10 @@ function badge(k) {
    render
    ============================================================ */
 function render() {
+  renderCore();
+  if (IS_DEV || (db && db.env === 'dev') || (state.config && state.config.env === 'dev')) $('#app').insertAdjacentHTML('afterbegin', '<div class="devbar">بيئة التطوير · بيانات تجريبية</div>');
+}
+function renderCore() {
   const app = $('#app');
   if (state.boot === 'loading') { app.innerHTML = `<div class="center full">${LOGO}<div class="spin" role="status" aria-label="جارٍ التحميل"></div></div>`; return }
   if (state.boot === 'setup') { app.innerHTML = setupView(); return }
@@ -1458,7 +1469,7 @@ function composeForm(mode) {
       ${(t ? CAT(t.cat).visit : c.cat && CAT(c.cat).visit) ? '<span></span>' : `<label class="sel" for="c-when">${icon('clock', 'sm')}<select id="c-when" data-bind="compose.when" aria-label="الموعد المناسب">${WHENS.map(w => `<option ${c.when === w ? 'selected' : ''}>${w}</option>`).join('')}</select></label>`}
       <button type="button" class="btn ghost file" data-act="pickPhoto">${icon('camera', 'sm')} ${c.photo ? 'تغيير الصورة' : 'إرفاق صورة'}</button>
     </div>
-    ${payPick('compose')}
+    ${payPick('compose', t)}
     ${c.photo ? `<div class="thumb"><img src="${c.photo}" alt="الصورة المرفقة"><button type="button" class="x" data-act="unphoto" aria-label="حذف الصورة">${icon('x', 'sm')}</button></div>` : ''}
     <button class="btn primary block" type="submit">${icon('send', 'sm')} ${label}</button>
   </form>`;
@@ -1609,7 +1620,16 @@ function cartBar(top) {
   const t = cartTotals(); if (!t.count) return '';
   return `<button class="cartbar" data-act="open" data-v="checkout"><span>${isSvc(P(top.id)?.cat) ? 'متابعة الحجز' : 'متابعة الطلب'} <span class="cnt">${t.count}</span></span><span class="num">${money(t.subtotal)}</span></button>`;
 }
-const payPick = key => `<div class="field-label">طريقة الدفع</div><div class="seg">
+/* الآجل يظهر فقط إذا كل المحلات المستهدفة مفعّلته من إعدادات محلها */
+function laterOK(key, t) {
+  if (key === 'co') { const p = state.cart && P(state.cart.pid); return !!(p && p.allowLater) }
+  const c = state.compose;
+  if (t) return !!t.allowLater;
+  const favs = c.cat ? favProviders(c.cat) : [];
+  return !!(favs.length && c.scope === 'fav' && favs.every(p => p.allowLater));
+}
+const payPick = (key, t) => { if (!laterOK(key, t)) { if (state[key].pay === 'later') state[key].pay = 'now'; return '' } return payPickHtml(key) };
+const payPickHtml = key => `<div class="field-label">طريقة الدفع</div><div class="seg">
   <button type="button" class="${state[key].pay !== 'later' ? 'on' : ''}" data-act="payMode" data-key="${key}" data-k="now">${icon('wallet', 'xs')} عند الاستلام</button>
   <button type="button" class="${state[key].pay === 'later' ? 'on' : ''}" data-act="payMode" data-key="${key}" data-k="later">آجل</button></div>
   ${state[key].pay === 'later' ? '<p class="xs" style="color:var(--bad);margin:4px 2px 0">يُسجَّل المبلغ عليك آجلاً، ويبقى معلّماً بالأحمر حتى يؤكد مقدم الخدمة السداد.</p>' : ''}`;
@@ -1875,6 +1895,7 @@ VIEWS.p_shop = u => {
       <label class="fld" for="s-min"><span>أقل طلب (ر.س)</span><input id="s-min" name="minOrder" type="number" min="0" value="${u.minOrder}"></label></div>
       <label class="toggle-row" for="s-delivers"><span><b>أوصّل الطلبات</b><small class="muted">إذا أطفأته يكون الاستلام من المحل فقط</small></span><input type="checkbox" id="s-delivers" name="delivers" ${u.delivers ? 'checked' : ''}></label>
       <label class="toggle-row" for="s-courier"><span><b>التوصيل عن طريق مندوب</b><small class="muted">المندوب يستلم من المحل ويحصّل من العميل</small></span><input type="checkbox" id="s-courier" name="usesCourier" ${u.usesCourier ? 'checked' : ''}></label>`}
+    <label class="toggle-row" for="s-later"><span><b>أقبل الدفع الآجل</b><small class="muted">إذا فعّلته يقدر العميل يختار «آجل» عند الطلب منك، ويُسجَّل المبلغ عليه حتى تؤكد السداد</small></span><input type="checkbox" id="s-later" name="allowLater" ${u.allowLater ? 'checked' : ''}></label>
     <div class="field-label">الأحياء اللي تخدمها</div><div class="checks">${db.settings.districts.map((d, i) => `<label for="s-d${i}"><input type="checkbox" id="s-d${i}" name="districts" value="${esc(d)}" ${u.districts.includes(d) ? 'checked' : ''}>${esc(d)}</label>`).join('')}</div>
     <button class="btn dark block">حفظ</button></form>`) +
   card('شعار المحل', `<div class="logo-row"><div class="logo-prev">${shopLogo(u) ? `<img src="${shopLogo(u)}" alt="شعار المحل">` : 'بدون شعار'}</div>
@@ -1971,7 +1992,15 @@ VIEWS.a_settings = u => {
     <label class="fld" for="st-b"><span>المنسّق (%)</span><input id="st-b" name="brokerRate" type="number" min="0" max="50" step="0.5" value="${s.brokerRate}"></label></div>
     <label class="fld" for="st-d"><span>الأحياء المخدومة (حي في كل سطر)</span><textarea id="st-d" name="districts" rows="4">${esc(s.districts.join('\n'))}</textarea></label>
     <p class="muted xs">تغيير النسب يسري على الطلبات الجديدة فقط.</p>
-    <button class="btn dark block">حفظ الإعدادات</button></form>`);
+    <button class="btn dark block">حفظ الإعدادات</button></form>`) +
+  (() => { const d = state.cleanDraft || {}; return card('تنظيف الطلبات', `<p class="muted sm">احذف الطلبات القديمة اللي ما لها داعي. الطلبات الآجلة اللي ما تسدّدت ما تنحذف إلا إذا اخترت ذلك.</p>
+    <form data-form="clean" class="stack">
+      <label class="fld" for="cl-scope"><span>أي الطلبات</span><select id="cl-scope" name="scope">${[['cancelled', 'الملغاة والمعتذر عنها فقط'], ['finished', 'المنتهية والملغاة'], ['all', 'كل الطلبات حتى الجارية']].map(([k, l]) => `<option value="${k}" ${d.scope === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      <label class="fld" for="cl-date"><span>اللي أُنشئت قبل</span><input id="cl-date" name="before" type="date" required value="${d.before || new Date(Date.now() + 864e5).toISOString().slice(0, 10)}"></label>
+      <label class="toggle-row" for="cl-due"><span><b>تشمل الآجل غير المسدد</b><small class="muted">انتبه: تختفي المبالغ المستحقة من سجلات العملاء والمحلات</small></span><input type="checkbox" id="cl-due" name="withDue" ${d.withDue ? 'checked' : ''}></label>
+      ${state.clean ? `<div class="note ${state.clean.count ? 'bad' : ''}">${icon('trash', 'sm')}<span>${state.clean.count ? `بينحذف <b>${state.clean.count}</b> طلب نهائياً، وما يمكن استرجاعها.` : 'ما فيه طلبات تطابق اختيارك.'}</span></div>` : ''}
+      ${state.clean && state.clean.count ? `<div class="pair"><button type="button" class="btn danger block" data-act="cleanGo">احذف ${state.clean.count} طلب</button><button type="button" class="btn ghost block" data-act="cleanX">إلغاء</button></div>` : '<button class="btn dark block">احسب عدد الطلبات</button>'}
+    </form>`) })();
 };
 
 /* ============================================================
@@ -2148,6 +2177,12 @@ const ACT = {
   },
   delLogo() { if (!confirm('حذف شعار المحل؟')) return; run('setLogo', { logo: '' }, 'تم حذف الشعار', () => { delete logoStore[me().id]; try { lsSet(LS_LOGO, JSON.stringify(logoStore)) } catch (e) { } }) },
   staffPerm(d) { run('staffStatus', { userId: d.id, perm: d.k }, d.k ? 'صار مدير محل' : 'رجع موظفاً') },
+  cleanX() { state.clean = null; render() },
+  cleanGo() {
+    const q = state.clean; if (!q || !q.count) return;
+    if (!confirm(`تأكيد نهائي: حذف ${q.count} طلب؟`)) return;
+    run('cleanOrders', { scope: q.scope, before: q.before, withDue: q.withDue }, j => `تم حذف ${j.count} طلب`, () => { state.clean = null });
+  },
   staffSt(d) { run('staffStatus', { userId: d.id, status: d.k }, d.k === 'active' ? 'تم تفعيل الموظف' : 'تم إيقاف الموظف') },
   delStaff(d) { const x = (db.staff || []).find(y => y.id === d.id); if (!confirm(`حذف ${x ? x.name : 'الموظف'}؟ طلباته المنفّذة تبقى محسوبة باسمه.`)) return; run('delStaff', { userId: d.id }, 'تم حذف الموظف') },
   per(d) { state.sub.per = d.k; state.perOff = 0; render() },
@@ -2220,6 +2255,7 @@ document.addEventListener('input', e => {
   const b = e.target.dataset.bind; if (!b) return; const [o, k] = b.split('.'); if (o === 'state') state[k] = e.target.value; else state[o][k] = e.target.value;
 });
 document.addEventListener('change', e => {
+  if (/^cl-/.test(e.target.id)) { const f = e.target.form, fd = new FormData(f); state.cleanDraft = { scope: fd.get('scope'), before: fd.get('before'), withDue: fd.get('withDue') === 'on' }; state.clean = null; render(); return }
   if (e.target.id === 'eu-role') { state.euDraft = { name: $('#eu-name').value, phone: $('#eu-phone').value }; state.euRole = e.target.value; render(); return }
   const t = e.target;
   if (t.dataset.rerender) { const [o, k] = t.dataset.bind.split('.'); state[o][k] = t.value; render(); return }
@@ -2336,7 +2372,7 @@ const FORMS = {
     if (!cat) { toast('اختر نوع الخدمة'); return }
     const favs = target ? [] : favProviders(cat), useFav = !target && favs.length && c.scope === 'fav';
     const targets = target ? [target] : useFav ? favs.map(p => p.id) : [];
-    run('createTextOrder', { cat, text, when: CAT(cat).visit ? whenOf('compose') : c.when, photo: c.photo || '', targets, addrId: addrById(c.addrId)?.id, pay: c.pay === 'later' ? 'later' : 'now' },
+    run('createTextOrder', { cat, text, when: CAT(cat).visit ? whenOf('compose') : c.when, photo: c.photo || '', targets, addrId: addrById(c.addrId)?.id, pay: c.pay === 'later' && laterOK('compose', target ? P(target) : null) ? 'later' : 'now' },
       () => target ? `وصل طلبك إلى ${P(target)?.name}` : useFav ? `وصل طلبك لمفضلتك (${targets.length})` : 'وصل طلبك لكل مقدمي الخدمة في الحي',
       j => { resetCompose(); state.stack = [{ v: 'order', id: j.orderId }]; window.scrollTo(0, 0) });
   },
@@ -2357,11 +2393,16 @@ const FORMS = {
   shop(f) {
     const fd = new FormData(f), ds = fd.getAll('districts'); if (!ds.length) { toast('اختر حياً واحداً على الأقل'); return }
     const cats = fd.getAll('shopCats'); if (!cats.length) { toast('اختر خدمة واحدة على الأقل'); return }
-    run('saveShop', { cats, name: fd.get('name').trim(), hours: fd.get('hours').trim(), districts: ds, visitFee: fd.get('visitFee'), deliveryFee: fd.get('deliveryFee'), minOrder: fd.get('minOrder'), delivers: fd.get('delivers') === 'on', usesCourier: fd.get('usesCourier') === 'on' }, 'حُفظت بيانات المحل', () => { state.shopCats = null });
+    run('saveShop', { cats, name: fd.get('name').trim(), hours: fd.get('hours').trim(), districts: ds, visitFee: fd.get('visitFee'), deliveryFee: fd.get('deliveryFee'), minOrder: fd.get('minOrder'), delivers: fd.get('delivers') === 'on', usesCourier: fd.get('usesCourier') === 'on', allowLater: fd.get('allowLater') === 'on' }, 'حُفظت بيانات المحل', () => { state.shopCats = null });
   },
   item(f) {
     const fd = new FormData(f), name = fd.get('name').trim(), price = fd.get('price'); if (!name || price === '') { toast('اكتب الاسم والسعر'); return }
     run('saveItem', { itemId: state.sheet.id || '', name, price, sec: fd.get('sec') || '' }, 'حُفظ الصنف', () => { state.sheet = null });
+  },
+  clean(f) {
+    const fd = new FormData(f), q = { scope: fd.get('scope'), before: new Date(fd.get('before') + 'T00:00:00').getTime(), withDue: fd.get('withDue') === 'on' };
+    state.cleanDraft = { scope: q.scope, before: fd.get('before'), withDue: q.withDue };
+    call('cleanOrders', Object.assign({ dry: true }, q)).then(j => { state.clean = Object.assign({ count: j.count }, q); render() }).catch(e => toast(e.message));
   },
   settings(f) {
     const fd = new FormData(f), ds = fd.get('districts').split(/\n|،|,/).map(x => x.trim()).filter(Boolean);
