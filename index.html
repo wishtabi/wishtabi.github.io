@@ -157,7 +157,9 @@ textarea:focus,input:focus,select:focus{border-color:var(--accent)}
 .persum{display:flex;justify-content:space-between;align-items:center;background:var(--navy);color:var(--on-navy);border-radius:var(--r);padding:12px 14px}
 .persum b{font-size:19px}.persum small{opacity:.8;display:block;font-size:12px}
 .grp{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);border-inline-start:4px solid var(--good);overflow:hidden}
-.grp.due{border-inline-start-color:var(--bad)}.grp.out{border-inline-start-color:var(--line);opacity:.75}
+.grp.due{border-inline-start-color:var(--bad)}
+.gcnt{display:inline-grid;place-items:center;min-width:30px;height:30px;padding:0 8px;border-radius:999px;background:var(--navy);color:#fff;font-size:14px!important}
+.grp-h .ocat{flex:none;color:var(--muted)}.grp.out{border-inline-start-color:var(--line);opacity:.75}
 .grp-h{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;font:inherit;color:inherit;padding:12px 14px;cursor:pointer;text-align:start}
 .grp-h .nm{flex:1;min-width:0}.grp-h .nm b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .grp-h .nm small{color:var(--muted);font-size:12.5px}
@@ -395,7 +397,9 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '2.3';
+const APP_VERSION = '2.4';
+const NEED_SERVER = '2.3'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
+const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
 const API_URL = 'https://script.google.com/macros/s/AKfycbznWE9rT2Jv8LhJvek3hIe04uadL6bF6WDL_S_pltjmNCdQJsEAcTm7QFTJWOl_l1w/exec';
 
 const LS_TOKEN = 'weshtabi_token', LS_API = 'weshtabi_api';
@@ -1222,8 +1226,8 @@ function shopLogo(u) {
 }
 function verBadge() {
   const sv = (db && db.ver) || (state.config && state.config.ver) || '';
-  const old = db ? sv !== APP_VERSION : !!sv && sv !== APP_VERSION;
-  return `<span class="ver ${old ? 'old' : ''}" title="${old ? `الواجهة ${APP_VERSION} والخادم ${sv}: حدّث النشر في Apps Script` : `الإصدار ${APP_VERSION}`}">v${APP_VERSION}${old ? ` · خادم ${sv || 'قديم'}` : ''}</span>`;
+  const old = db ? verNum(sv) < verNum(NEED_SERVER) : !!sv && verNum(sv) < verNum(NEED_SERVER);
+  return `<span class="ver ${old ? 'old' : ''}" title="${old ? `الواجهة ${APP_VERSION} تحتاج خادم ${NEED_SERVER} أو أحدث، والموجود ${sv || 'قديم'}: حدّث النشر في Apps Script` : `الواجهة ${APP_VERSION} · الخادم ${sv}`}">v${APP_VERSION}${old ? ` · خادم ${sv || 'قديم'}` : ''}</span>`;
 }
 function header(u, top) {
   const start = top ? `<button class="iconbtn" data-act="back" aria-label="رجوع">${icon('back')}</button><div class="htitle">${esc(titleOf(top))}</div>` : `<div class="brand">${LOGO}${verBadge()}</div>`;
@@ -1263,20 +1267,24 @@ function perRange() {
   return { a: +a, b: +b, l };
 }
 /* الطلبات مجمّعة حسب الطرف الآخر: سطر لكل محل أو عميل، ويفتح لتفاصيل طلباته */
-function groupedOrders(list, keyOf, nameOf, emptyTxt, unit) {
-  const r = perRange(), inP = list.filter(o => o.createdAt >= r.a && o.createdAt < r.b).sort(byNew);
+function groupedOrders(list, keyOf, nameOf, emptyTxt, unit, opt) {
+  opt = opt || {};
+  const r = perRange(), inP = (opt.noPeriod ? list : list.filter(o => o.createdAt >= r.a && o.createdAt < r.b)).sort(byNew);
   const live = o => !['cancelled', 'rejected'].includes(o.status), amt = o => o.total || o.subtotal || 0;
   const tot = inP.filter(live).reduce((s, o) => s + amt(o), 0), cnt = inP.filter(live).length;
   const groups = groupBy(inP, keyOf).map(([k, a]) => ({ k, a, name: nameOf(a[0]), sum: a.filter(live).reduce((s, o) => s + amt(o), 0), due: a.filter(isDue).reduce((s, o) => s + amt(o), 0) })).sort((x, y) => y.sum - x.sum);
   const head = `<div class="pernav">${seg('per', [['day', 'يومي'], ['week', 'أسبوعي'], ['month', 'شهري'], ['year', 'سنوي']]).replace(/data-act="sub" data-key="per"/g, 'data-act="per"')}</div>
     <div class="perbar"><button class="iconbtn light" data-act="perShift" data-k="-1" aria-label="الفترة السابقة">›</button><span class="lbl">${r.l}</span><button class="iconbtn light" data-act="perShift" data-k="1" aria-label="الفترة التالية" ${state.perOff >= 0 ? 'disabled style="opacity:.35"' : ''}>‹</button></div>`;
-  if (!inP.length) return head + empty(emptyTxt);
+  const hd = opt.noPeriod ? '' : head;
+  if (!inP.length) return hd + empty(emptyTxt);
   const gl = groups.filter(g => g.a.some(live)).length;
   const line = o => { const sum = o.type === 'menu' ? o.items.map((i, x) => `${itemTrName(i, o, x) || i.name}${i.qty > 1 ? ` ×${i.qty}` : ''}`).join('، ') : (o.textTr || o.text);
+    if (opt.detail) return `<button class="gline ${isDue(o) ? 'due' : ''} ${live(o) ? '' : 'out'}" data-act="open" data-v="order" data-id="${o.id}"><span class="r1"><span class="num">${dtText(o.createdAt)} · #${o.id}</span><span class="amt">${amt(o) ? `<b class="num">${money(amt(o))}</b>` : ''}</span></span>
+      <span class="r2" style="margin-top:5px;gap:6px;justify-content:flex-start;flex-wrap:wrap">${pill(o)}${live(o) ? payTag(o) : ''}<span class="muted" style="font-size:12.5px">${esc(opt.detail(o))}</span></span><span class="r2"><span dir="auto" class="muted">${esc(sum || '')}</span></span></button>`;
     return `<button class="gline ${isDue(o) ? 'due' : ''} ${live(o) ? '' : 'out'}" data-act="open" data-v="order" data-id="${o.id}"><span class="r1"><span class="num">${dtText(o.createdAt)} · #${o.id}</span><span class="amt">${live(o) ? payTag(o) : pill(o)}${amt(o) ? `<b class="num">${money(amt(o))}</b>` : ''}</span></span><span class="r2"><span dir="auto">${esc(sum || '')}</span></span></button>` };
-  return head + `<div class="persum"><span><small>${cnt} ${cnt === 1 ? 'طلب' : 'طلبات'} · ${gl} ${unit === 'موظف' ? (gl === 1 ? 'منفّذ' : 'منفّذين') : me().role === 'customer' ? (gl === 1 ? 'محل' : 'محلات') : (gl === 1 ? 'عميل' : 'عملاء')}</small>المجموع</span><b class="num">${money(tot)}</b></div>
+  return hd + `<div class="persum"><span><small>${cnt} ${cnt === 1 ? 'طلب' : 'طلبات'} · ${gl} ${unit === 'مجموعة' ? (gl === 1 ? 'مجموعة' : 'مجموعات') : unit === 'موظف' ? (gl === 1 ? 'منفّذ' : 'منفّذين') : me().role === 'customer' ? (gl === 1 ? 'محل' : 'محلات') : (gl === 1 ? 'عميل' : 'عملاء')}</small>المجموع</span><b class="num">${money(tot)}</b></div>
     <div class="list">${groups.map(g => { const open = state.grpOpen[g.k]; return `<div class="grp ${g.due ? 'due' : ''} ${g.a.some(live) ? '' : 'out'} ${open ? 'open' : ''}">
-      <button class="grp-h" data-act="grp" data-k="${esc(g.k)}" aria-expanded="${!!open}"><span class="nm"><b>${esc(g.name)}</b><small>${plural(g.a.length, 'طلب واحد', 'طلبان', 'طلبات')}</small></span><span class="am"><b class="num">${money(g.sum)}</b>${g.due ? `<small>منها آجل ${money(g.due)}</small>` : ''}</span><span class="chev">‹</span></button>
+      <button class="grp-h" data-act="grp" data-k="${esc(g.k)}" aria-expanded="${!!open}">${opt.iconOf ? `<span class="ocat">${icon(opt.iconOf(g.a[0]), 'sm')}</span>` : ''}<span class="nm"><b>${esc(g.name)}</b><small>${opt.countEnd ? (g.sum ? money(g.sum) : 'بدون مبلغ بعد') : plural(g.a.length, 'طلب واحد', 'طلبان', 'طلبات')}</small></span><span class="am">${opt.countEnd ? `<b class="gcnt num">${g.a.length}</b>` : `<b class="num">${money(g.sum)}</b>`}${g.due ? `<small>${opt.countEnd ? 'آجل' : 'منها آجل'} ${money(g.due)}</small>` : ''}</span><span class="chev">‹</span></button>
       ${open ? `<div class="grp-b">${g.a.map(line).join('')}</div>` : ''}</div>` }).join('')}</div>`;
 }
 const custNames = arr => [...new Set(arr.map(o => o.customerName).filter(Boolean))].join('، ');
@@ -1876,7 +1884,10 @@ VIEWS.a_users = u => {
 VIEWS.a_orders = u => {
   const os = db.orders.slice().sort(byNew), k = state.sub.a_orders;
   const f = { active: o => ACTIVE.includes(o.status), open: o => o.status === 'new' && !o.providerId, done: o => ['delivered', 'closed'].includes(o.status), out: o => ['cancelled', 'rejected'].includes(o.status), all: () => true }[k];
-  return seg('a_orders', [['active', 'جارية'], ['open', 'مفتوحة'], ['done', 'منتهية'], ['out', 'ملغاة'], ['all', 'الكل']]) + listOr(os.filter(f), 'ما فيه طلبات هنا.');
+  const det = o => [o.providerName ? `مقدم الخدمة: ${o.providerName}` : o.quoteCount ? `${o.quoteCount} ${o.quoteCount === 1 ? 'عرض' : 'عروض'} بانتظار العميل` : o.targetCount ? `موجّه إلى ${o.targetNames.join('، ')}` : 'مفتوح لكل الحي',
+    o.courierName ? `المندوب: ${o.courierName}` : o.courierRequested && o.status === 'in_progress' ? 'ينتظر مندوب' : '', o.fulfil === 'visit' ? 'زيارة' : o.fulfil === 'pickup' ? 'استلام من المحل' : '', o.reason ? `السبب: ${o.reason}` : ''].filter(Boolean).join(' · ');
+  return seg('a_orders', [['active', 'جارية'], ['open', 'مفتوحة'], ['done', 'منتهية'], ['out', 'ملغاة'], ['all', 'الكل']]) +
+    groupedOrders(os.filter(f), o => `${o.customerId}|${o.cat}`, o => `${o.customerName} · ${CAT(o.cat).name}`, 'ما فيه طلبات هنا.', 'مجموعة', { noPeriod: ['active', 'open'].includes(k), countEnd: true, iconOf: o => CAT(o.cat).icon, detail: det });
 };
 VIEWS.a_settings = u => {
   const s = db.settings;
