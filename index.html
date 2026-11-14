@@ -986,7 +986,8 @@ const secLabel = g => { const L = myLang(); const t = L !== 'ar' && SEC_TR[L] &&
 const langSelect = (id, cur, attrs = '') => `<select id="${id}" ${attrs}>${Object.entries(LANG_NAMES).map(([k, v]) => `<option value="${k}" ${cur === k ? 'selected' : ''}>${v}</option>`).join('')}</select>`;
 
 /* ---------- constants ---------- */
-const ROLE = { customer: 'طالب خدمة', provider: 'مقدم خدمة', courier: 'مندوب توصيل', broker: 'منسّق', admin: 'مدير المنصة' };
+const ROLE = { customer: 'طالب خدمة', provider: 'مقدم خدمة', courier: 'مندوب توصيل', broker: 'منسّق', admin: 'مدير المنصة', staff: 'موظف محل' };
+const isStaff = () => !!(db && db.me && db.me.staff);
 const STATUS_U = { active: 'مُفَعَّل', pending: 'بانتظار الاعتماد', blocked: 'موقوف', rejected: 'مرفوض' };
 const ST = {
   new: { l: 'طلب جديد', t: 'info' }, accepted: { l: 'مقبول', t: 'info' }, in_progress: { l: 'قيد التنفيذ', t: 'warn' },
@@ -1151,7 +1152,7 @@ const state = {
   tab: '', stack: [], cart: null, co: { fulfil: 'delivery', note: '', when: 'أقرب وقت' },
   compose: { text: '', cat: '', when: 'أقرب وقت', photo: null, target: null, scope: 'fav' },
   perOff: 0, grpOpen: {}, moreOpen: {},
-  sub: { per: 'day', orders: 'current', p_orders: 'targeted', a_orders: 'active', a_users: 'pending' },
+  sub: { per: 'day', incBy: 'cust', orders: 'current', p_orders: 'targeted', a_orders: 'active', a_users: 'pending' },
   sheet: null, rate: 5, rateText: '', filters: {}, menus: {}, menuLoading: {}, photos: {}, photoLoading: {}
 };
 
@@ -1162,7 +1163,8 @@ const TABS = {
   broker: [{ k: 'b_open', l: 'تنتظر مقدم', i: 'link' }, { k: 'b_mine', l: 'طلباتي', i: 'receipt' }, { k: 'b_wallet', l: 'المحفظة', i: 'wallet' }],
   admin: [{ k: 'a_overview', l: 'نظرة عامة', i: 'chart' }, { k: 'a_users', l: 'المستخدمون', i: 'users' }, { k: 'a_orders', l: 'الطلبات', i: 'receipt' }, { k: 'a_settings', l: 'الإعدادات', i: 'sliders' }]
 };
-const tabsFor = u => (TABS[u.role] || []).filter(t => !t.menuOnly || catsOf(u).some(c => CAT(c).hasMenu));
+const STAFF_TABS = [{ k: 'p_orders', l: 'الطلبات', i: 'receipt' }, { k: 'p_menu', l: 'القائمة', i: 'menu', menuOnly: true }, { k: 'p_mine', l: 'إنجازي', i: 'chart' }];
+const tabsFor = u => (u.staff ? STAFF_TABS : TABS[u.role] || []).filter(t => !t.menuOnly || catsOf(u).some(c => CAT(c).hasMenu));
 function ensureTab() { const u = me(); if (!tabsFor(u).some(t => t.k === state.tab)) state.tab = (tabsFor(u)[0] || {}).k }
 const provTargeted = o => o.status === 'new' && (o.providerId === me().id || o.targetedToMe);
 const provOpen = o => o.status === 'new' && !o.providerId && !o.targetedToMe;
@@ -1201,7 +1203,7 @@ function render() {
 }
 function header(u, top) {
   const start = top ? `<button class="iconbtn" data-act="back" aria-label="رجوع">${icon('back')}</button><div class="htitle">${esc(titleOf(top))}</div>` : `<div class="brand">${LOGO}</div>`;
-  return `<header class="top">${start}${EXT.head(u, top)}<button class="who" data-act="sheet" data-type="me" aria-label="حسابي"><span class="who-av">${esc((u.name || '؟').trim()[0])}</span><span class="who-txt"><b>${esc(u.name)}</b><small>${ROLE[u.role]}</small></span></button></header>`;
+  return `<header class="top">${start}${EXT.head(u, top)}<button class="who" data-act="sheet" data-type="me" aria-label="حسابي"><span class="who-av">${esc(((u.staff ? u.staff.name : u.name) || '؟').trim()[0])}</span><span class="who-txt"><b>${esc(u.staff ? u.staff.name : u.name)}</b><small>${u.staff ? `موظف · ${esc(u.name)}` : ROLE[u.role]}</small></span></button></header>`;
 }
 function titleOf(t) { switch (t.v) { case 'provider': return P(t.id)?.name || ''; case 'category': return CAT(t.id).name; case 'checkout': return 'تأكيد الطلب'; case 'order': return `طلب #${t.id}` } return '' }
 function nav(u) {
@@ -1232,22 +1234,23 @@ function perRange() {
   const f = d => `${d.getDate()}/${d.getMonth() + 1}`;
   if (state.sub.per === 'day') { a = new Date(n); a.setDate(a.getDate() + off); b = new Date(a); b.setDate(b.getDate() + 1); l = off === 0 ? `اليوم ${f(a)}` : off === -1 ? `أمس ${f(a)}` : `${['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'][a.getDay()]} ${f(a)}` }
   else if (state.sub.per === 'week') { a = new Date(n); a.setDate(a.getDate() - ((a.getDay() + 1) % 7) + off * 7); b = new Date(a); b.setDate(b.getDate() + 7); const e = new Date(b); e.setDate(e.getDate() - 1); l = `${off === 0 ? 'هذا الأسبوع' : off === -1 ? 'الأسبوع الماضي' : 'أسبوع'} ${f(a)} – ${f(e)}` }
+  else if (state.sub.per === 'year') { a = new Date(n.getFullYear() + off, 0, 1); b = new Date(a.getFullYear() + 1, 0, 1); l = `سنة ${a.getFullYear()}` }
   else { a = new Date(n.getFullYear(), n.getMonth() + off, 1); b = new Date(a.getFullYear(), a.getMonth() + 1, 1); l = `${['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'][a.getMonth()]} ${a.getFullYear()}` }
   return { a: +a, b: +b, l };
 }
 /* الطلبات مجمّعة حسب الطرف الآخر: سطر لكل محل أو عميل، ويفتح لتفاصيل طلباته */
-function groupedOrders(list, keyOf, nameOf, emptyTxt) {
+function groupedOrders(list, keyOf, nameOf, emptyTxt, unit) {
   const r = perRange(), inP = list.filter(o => o.createdAt >= r.a && o.createdAt < r.b).sort(byNew);
   const live = o => !['cancelled', 'rejected'].includes(o.status), amt = o => o.total || o.subtotal || 0;
   const tot = inP.filter(live).reduce((s, o) => s + amt(o), 0), cnt = inP.filter(live).length;
   const groups = groupBy(inP, keyOf).map(([k, a]) => ({ k, a, name: nameOf(a[0]), sum: a.filter(live).reduce((s, o) => s + amt(o), 0), due: a.filter(isDue).reduce((s, o) => s + amt(o), 0) })).sort((x, y) => y.sum - x.sum);
-  const head = `<div class="pernav">${seg('per', [['day', 'يومي'], ['week', 'أسبوعي'], ['month', 'شهري']]).replace(/data-act="sub" data-key="per"/g, 'data-act="per"')}</div>
+  const head = `<div class="pernav">${seg('per', [['day', 'يومي'], ['week', 'أسبوعي'], ['month', 'شهري'], ['year', 'سنوي']]).replace(/data-act="sub" data-key="per"/g, 'data-act="per"')}</div>
     <div class="perbar"><button class="iconbtn light" data-act="perShift" data-k="-1" aria-label="الفترة السابقة">›</button><span class="lbl">${r.l}</span><button class="iconbtn light" data-act="perShift" data-k="1" aria-label="الفترة التالية" ${state.perOff >= 0 ? 'disabled style="opacity:.35"' : ''}>‹</button></div>`;
   if (!inP.length) return head + empty(emptyTxt);
   const gl = groups.filter(g => g.a.some(live)).length;
   const line = o => { const sum = o.type === 'menu' ? o.items.map((i, x) => `${itemTrName(i, o, x) || i.name}${i.qty > 1 ? ` ×${i.qty}` : ''}`).join('، ') : (o.textTr || o.text);
     return `<button class="gline ${isDue(o) ? 'due' : ''} ${live(o) ? '' : 'out'}" data-act="open" data-v="order" data-id="${o.id}"><span class="r1"><span class="num">${dtText(o.createdAt)} · #${o.id}</span><span class="amt">${live(o) ? payTag(o) : pill(o)}${amt(o) ? `<b class="num">${money(amt(o))}</b>` : ''}</span></span><span class="r2"><span dir="auto">${esc(sum || '')}</span></span></button>` };
-  return head + `<div class="persum"><span><small>${cnt} ${cnt === 1 ? 'طلب' : 'طلبات'} · ${gl} ${me().role === 'customer' ? (gl === 1 ? 'محل' : 'محلات') : (gl === 1 ? 'عميل' : 'عملاء')}</small>المجموع</span><b class="num">${money(tot)}</b></div>
+  return head + `<div class="persum"><span><small>${cnt} ${cnt === 1 ? 'طلب' : 'طلبات'} · ${gl} ${unit === 'موظف' ? (gl === 1 ? 'منفّذ' : 'منفّذين') : me().role === 'customer' ? (gl === 1 ? 'محل' : 'محلات') : (gl === 1 ? 'عميل' : 'عملاء')}</small>المجموع</span><b class="num">${money(tot)}</b></div>
     <div class="list">${groups.map(g => { const open = state.grpOpen[g.k]; return `<div class="grp ${g.due ? 'due' : ''} ${g.a.some(live) ? '' : 'out'} ${open ? 'open' : ''}">
       <button class="grp-h" data-act="grp" data-k="${esc(g.k)}" aria-expanded="${!!open}"><span class="nm"><b>${esc(g.name)}</b><small>${plural(g.a.length, 'طلب واحد', 'طلبان', 'طلبات')}</small></span><span class="am"><b class="num">${money(g.sum)}</b>${g.due ? `<small>منها آجل ${money(g.due)}</small>` : ''}</span><span class="chev">‹</span></button>
       ${open ? `<div class="grp-b">${g.a.map(line).join('')}</div>` : ''}</div>` }).join('')}</div>`;
@@ -1720,7 +1723,8 @@ VIEWS.p_orders = u => {
         : k === 'working' ? listOr(working, 'ما فيه طلبات قيد التنفيذ.') : groupedOrders(done, o => o.customerId, o => o.customerName, 'ما فيه طلبات منتهية في هذه الفترة.'));
 };
 VIEWS.p_menu = u => {
-  const items = db.menu || [], cat = catalogFor(u), cn = catNames(u);
+  const items = db.menu || [], cat = catalogFor(u), cn = catNames(u), st = !!u.staff;
+  if (!items.length && st) return empty('القائمة يجهّزها صاحب المحل. بعدها تقدر تغيّر توفّر الأصناف من هنا.');
   if (!items.length && cat) return `<section class="card starter"><h2>ابدأ قائمتك في دقيقة</h2>
     <p>جهّزنا لك قائمة ${cn} فيها ${cat.items.length} ${unitWord(u.cat)} في ${cat.sections.length} ${cat.sections.length > 2 ? 'أقسام' : 'قسم'}، ${isSvc(u.cat) ? 'بأسعار تبدأ من مبلغ مقترح تعدّله حسب شغلك. السعر النهائي تحدده عند الانتهاء.' : 'بأسعار مقترحة تقديرية تعدّلها حسب محلك.'}</p>
     <div class="actions"><button class="btn primary block" data-act="addAllCatalog">${icon('plus', 'sm')} أضف القائمة كاملة (${cat.items.length} ${unitWord(u.cat)})</button>
@@ -1729,10 +1733,16 @@ VIEWS.p_menu = u => {
   const off = items.filter(i => !i.available).length;
   const row = i => `<div class="item ${i.available ? '' : 'off'}" data-s="${esc(norm(i.name + ' ' + itemTrName(i)))}"><span class="nm"><b>${itemLabel(i)}</b><span class="muted sm num">${isSvc(u.cat) ? 'يبدأ من ' : ''}${money(i.price)}${i.available ? '' : ' · غير متوفر'}</span></span>
     <span class="iact"><button class="switch ${i.available ? 'on' : ''}" data-act="toggleItem" data-id="${i.id}" role="switch" aria-checked="${i.available}" aria-label="متوفر: ${esc(i.name)}"></button>
-    <button class="iconbtn light" data-act="sheet" data-type="item" data-id="${i.id}" aria-label="تعديل ${esc(i.name)}">${icon('edit', 'sm')}</button></span></div>`;
-  return `<div class="${cat ? 'row2' : 'actions'}">${cat ? `<button class="btn primary" data-act="sheet" data-type="catalog">${icon('plus', 'sm')} من القائمة الجاهزة</button>` : ''}<button class="btn ${cat ? 'ghost' : 'primary block'}" data-act="sheet" data-type="item">${cat ? '' : icon('plus', 'sm') + ' '}${isSvc(u.cat) ? 'خدمة خاصة' : 'صنف خاص'}</button></div>
+    ${st ? '' : `<button class="iconbtn light" data-act="sheet" data-type="item" data-id="${i.id}" aria-label="تعديل ${esc(i.name)}">${icon('edit', 'sm')}</button>`}</span></div>`;
+  if (st) return `<p class="muted sm">${items.length} ${unitWord(u.cat)}${off ? ` · ${off} غير متوفر الآن` : ''}. غيّر التوفّر من المفتاح، والأسعار والإضافة عند صاحب المحل.</p>${menuBrowser(u, items, row, 'pm')}`;
+  return `<div class=""${cat ? 'row2' : 'actions'}">${cat ? `<button class="btn primary" data-act="sheet" data-type="catalog">${icon('plus', 'sm')} من القائمة الجاهزة</button>` : ''}<button class="btn ${cat ? 'ghost' : 'primary block'}" data-act="sheet" data-type="item">${cat ? '' : icon('plus', 'sm') + ' '}${isSvc(u.cat) ? 'خدمة خاصة' : 'صنف خاص'}</button></div>
     <p class="muted sm">${items.length ? `${items.length} ${unitWord(u.cat)} في قائمتك${off ? ` · ${off} غير متوفر الآن` : ''}. اضغط ${icon('edit', 'xs')} لتعديل السعر.` : 'أضف أول صنف في قائمتك.'}</p>
     ${items.length ? menuBrowser(u, items, row, 'pm') : ''}`;
+};
+VIEWS.p_mine = u => {
+  const sid = u.staff.id, mine = db.orders.filter(o => o.doneBy === sid && ['delivered', 'closed'].includes(o.status)), due = mine.filter(isDue);
+  return `<div class="tiles"><div class="tile hl"><span>نفّذت إجمالاً</span><b class="num">${mine.length}</b><small>طلب</small></div><div class="tile"><span>آجل لم يُسدَّد</span><b class="num" ${due.length ? 'style="color:var(--bad)"' : ''}>${money(due.reduce((s, o) => s + o.total, 0))}</b><small>${due.length} طلب</small></div></div>
+    <section><div class="sec-h"><h2>الطلبات اللي نفّذتها</h2></div>${groupedOrders(mine, o => o.customerId, o => o.customerName, 'ما نفّذت طلبات في هذه الفترة.')}</section>`;
 };
 VIEWS.p_income = u => {
   const mine = db.orders.filter(o => o.providerId === u.id && ['delivered', 'closed'].includes(o.status));
@@ -1745,7 +1755,10 @@ VIEWS.p_income = u => {
     <div class="tile"><span>تقييمك</span><b class="num">${u.ratingCount ? avg(u).toFixed(1) : '—'}</b><small>من ${u.ratingCount} تقييم</small></div>
     <div class="tile"><span>العمولة المستحقة</span><b class="num">${money(comm)}</b><small>${db.settings.trial ? 'مجانية في التجربة' : 'للمنصة والمنسّق'}</small></div></div>
     ${due.length ? `<section class="duebox"><h3>${icon('wallet', 'sm')} مبالغ آجلة على العملاء: <span class="num">${money(due.reduce((s, o) => s + o.total, 0))}</span></h3><div class="lines">${groupBy(due, o => o.customerName).map(([n, a]) => `<div class="line"><span>${esc(n)} <span class="muted">(${plural(a.length, 'طلب', 'طلبان', 'طلبات')})</span></span><b class="num">${money(a.reduce((s, o) => s + o.total, 0))}</b></div>`).join('')}</div><p class="xs" style="margin:8px 0 0">افتح الطلب واضغط «تم السداد» لما تستلم المبلغ.</p></section>` : ''}
-    <section><div class="sec-h"><h2>الطلبات المنتهية حسب العميل</h2></div>${groupedOrders(mine, o => o.customerId, o => o.customerName, 'ما فيه طلبات منتهية في هذه الفترة.')}</section>`;
+    ${(db.staff || []).length ? seg('incBy', [['cust', 'حسب العميل'], ['staff', 'حسب الموظف']]) : ''}
+    <section><div class="sec-h"><h2>الطلبات المنتهية ${state.sub.incBy === 'staff' && (db.staff || []).length ? 'حسب الموظف' : 'حسب العميل'}</h2></div>${state.sub.incBy === 'staff' && (db.staff || []).length
+      ? groupedOrders(mine, o => o.doneBy || u.id, o => !o.doneBy || o.doneBy === u.id ? `${u.name} (المالك)` : o.doneByName || 'موظف سابق', 'ما فيه طلبات منتهية في هذه الفترة.', 'موظف')
+      : groupedOrders(mine, o => o.customerId, o => o.customerName, 'ما فيه طلبات منتهية في هذه الفترة.')}</section>`;
 };
 VIEWS.p_shop = u => {
   const c = CAT(u.cat), sel = state.shopCats || catsOf(u), k = kindOf(u.cat);
@@ -1761,8 +1774,15 @@ VIEWS.p_shop = u => {
     <div class="field-label">الأحياء اللي تخدمها</div><div class="checks">${db.settings.districts.map((d, i) => `<label for="s-d${i}"><input type="checkbox" id="s-d${i}" name="districts" value="${esc(d)}" ${u.districts.includes(d) ? 'checked' : ''}>${esc(d)}</label>`).join('')}</div>
     <button class="btn dark block">حفظ</button></form>`) +
   card('موقع المحل', `<p class="sm">${hasLoc(u.loc) ? '<span class="tag good">محدد على الخريطة</span> المندوب والعملاء يشوفون موقع محلك ويوصلون له بالخرائط.' : '<span class="tag warn">غير محدد</span> حدد موقع محلك عشان يوصلك المندوب، ويشوف العملاء كم يبعد عنهم.'}</p>
-    <button class="btn ${hasLoc(u.loc) ? 'ghost' : 'primary'} block" data-act="sheet" data-type="shopLoc">${icon('pin', 'sm')} ${hasLoc(u.loc) ? 'تعديل الموقع' : 'حدد موقع المحل'}</button>`) + accountCard();
+    <button class="btn ${hasLoc(u.loc) ? 'ghost' : 'primary'} block" data-act="sheet" data-type="shopLoc">${icon('pin', 'sm')} ${hasLoc(u.loc) ? 'تعديل الموقع' : 'حدد موقع المحل'}</button>`) + staffCard() + accountCard();
 };
+function staffCard() {
+  const st = db.staff || [];
+  return card('الموظفون', `<p class="muted sm">كل موظف يدخل برقمه ورمزه، ويشوف طلبات المحل ويقبلها وينفّذها ويغيّر توفّر الأصناف. الأسعار وبيانات المحل والدخل لك أنت.</p>
+    ${st.length ? `<div class="stack" style="gap:8px">${st.map(x => `<div class="line" style="align-items:center;gap:8px;flex-wrap:wrap"><span><b>${esc(x.name)}</b> <span class="muted sm num">${esc(x.phone)}</span> ${x.status === 'active' ? '<span class="tag good">مُفَعَّل</span>' : '<span class="tag bad">موقوف</span>'}</span>
+      <span style="display:flex;gap:6px"><button class="btn ghost sm" data-act="staffSt" data-id="${x.id}" data-k="${x.status === 'active' ? 'blocked' : 'active'}">${x.status === 'active' ? 'إيقاف' : 'تفعيل'}</button><button class="btn ghost sm" data-act="sheet" data-type="staffPin" data-id="${x.id}">${icon('key', 'xs')} الرمز</button><button class="btn ghost sm" data-act="delStaff" data-id="${x.id}" aria-label="حذف ${esc(x.name)}">${icon('trash', 'xs')}</button></span></div>`).join('')}</div>` : ''}
+    <button class="btn primary block" data-act="sheet" data-type="staff">${icon('plus', 'sm')} أضف موظف</button>`);
+}
 const accountCard = () => card('', `<div class="actions"><button class="btn ghost block" data-act="sheet" data-type="pin">${icon('key', 'sm')} تغيير الرمز السري</button><button class="btn danger block" data-act="logout">${icon('logout', 'sm')} تسجيل الخروج</button></div>`);
 
 /* ============================================================
@@ -1818,7 +1838,7 @@ VIEWS.a_users = u => {
       acts.push(`<div class="chips">${b.join('')}</div>`);
     }
     const st = { active: 'good', pending: 'info', blocked: 'bad', rejected: 'bad' }[x.status];
-    return `<div class="card" data-s="${esc(norm(x.name + ' ' + x.phone))}"><div class="ohead-top"><div><b>${esc(x.name)}</b>${(() => { const d = (db.orders || []).filter(o => isDue(o) && ['delivered', 'closed'].includes(o.status) && (o.customerId === x.id || o.providerId === x.id)), t = d.reduce((s, o) => s + o.total, 0); return d.length ? ` <span class="tag bad">${x.role === 'customer' ? 'عليه' : 'له'} آجل ${money(t)}</span>` : '' })()}<p class="muted sm">${ROLE[x.role]}${x.role === 'provider' ? ` · ${catNames(x)} · ${x.districts.map(esc).join('، ')}` : x.district ? ` · حي ${esc(x.district)}` : ''}${x.vehicle ? ` · ${esc(x.vehicle)}` : ''}</p>
+    return `<div class="card" data-s="${esc(norm(x.name + ' ' + x.phone))}"><div class="ohead-top"><div><b>${esc(x.name)}</b>${(() => { const d = (db.orders || []).filter(o => isDue(o) && ['delivered', 'closed'].includes(o.status) && (o.customerId === x.id || o.providerId === x.id)), t = d.reduce((s, o) => s + o.total, 0); return d.length ? ` <span class="tag bad">${x.role === 'customer' ? 'عليه' : 'له'} آجل ${money(t)}</span>` : '' })()}<p class="muted sm">${ROLE[x.role]}${x.role === 'staff' ? ` · ${esc(((db.users || []).find(y => y.id === x.shopId) || {}).name || '')}` : ''}${x.role === 'provider' ? ` · ${catNames(x)} · ${x.districts.map(esc).join('، ')}` : x.district ? ` · حي ${esc(x.district)}` : ''}${x.vehicle ? ` · ${esc(x.vehicle)}` : ''}</p>
       <p class="muted xs">${phone(x.phone)} · ${ago(x.createdAt)}${x.locked ? ' · <b style="color:var(--bad)">مقفل بعد محاولات خاطئة</b>' : ''}</p></div><span class="pill t-${st}">${STATUS_U[x.status]}</span></div>${acts.join('')}</div>`;
   };
   return seg('a_users', [['pending', 'بانتظار الاعتماد', pend.length], ['all', 'الكل', 0]]) +
@@ -1849,7 +1869,7 @@ VIEWS.a_settings = u => {
 function sheetHtml() {
   const s = state.sheet; if (!s) return '';
   const u = me(); let h = '';
-  if (s.type === 'me') h = `<h2>${esc(u.name)}</h2><p class="muted sm">${ROLE[u.role]} · ${phone(u.phone)}</p>
+  if (s.type === 'me') h = (u.staff ? `<h2>${esc(u.staff.name)}</h2><p class="muted sm">موظف في ${esc(u.name)} · ${phone(u.staff.phone)}</p>` : `<h2>${esc(u.name)}</h2><p class="muted sm">${ROLE[u.role]} · ${phone(u.phone)}</p>`) + `
     <div class="actions">${u.role === 'customer' ? `<button class="btn ghost block" data-act="tab" data-k="account">${icon('user', 'sm')} بياناتي وعنواني</button>` : ''}
     <button class="btn ghost block" data-act="sheet" data-type="pin">${icon('key', 'sm')} تغيير الرمز السري</button>
     ${EXT.meBtns(u) || `<button class="btn danger block" data-act="logout">${icon('logout', 'sm')} تسجيل الخروج</button>`}</div>
@@ -1893,6 +1913,13 @@ function sheetHtml() {
     <div class="row2"><label class="fld" for="pn-new"><span>الرمز الجديد</span><input id="pn-new" name="newPin" type="password" inputmode="numeric" maxlength="4" dir="ltr" required></label>
     <label class="fld" for="pn-new2"><span>أعد كتابته</span><input id="pn-new2" name="newPin2" type="password" inputmode="numeric" maxlength="4" dir="ltr" required></label></div>
     <button class="btn primary block">حفظ الرمز</button></form>`;
+  if (s.type === 'staff') h = `<h2>موظف جديد</h2><p class="muted sm">بلّغ الموظف برقمه والرمز، ويدخل بهم من شاشة الدخول العادية.</p><form data-form="staff" class="stack">
+    <label class="fld" for="sf-name"><span>اسم الموظف</span><input id="sf-name" name="name" required maxlength="60"></label>
+    <label class="fld" for="sf-phone"><span>رقم جواله</span><input id="sf-phone" name="phone" type="tel" dir="ltr" inputmode="numeric" maxlength="10" required placeholder="05xxxxxxxx"></label>
+    <label class="fld" for="sf-pin"><span>رمز دخول من 4 أرقام</span><input id="sf-pin" name="pin" type="text" inputmode="numeric" maxlength="4" dir="ltr" required></label>
+    <label class="fld" for="sf-lang"><span>لغة الترجمة للموظف</span><select id="sf-lang" name="lang">${Object.entries(LANG_NAMES).map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
+    <button class="btn primary block">إضافة</button></form>`;
+  if (s.type === 'staffPin') { const x = (db.staff || []).find(y => y.id === s.id); h = `<h2>رمز جديد لـ ${esc(x?.name)}</h2><form data-form="staffPin" class="stack"><label class="fld" for="sp"><span>الرمز الجديد</span><input id="sp" name="pin" type="text" inputmode="numeric" maxlength="4" dir="ltr" required></label><button class="btn primary block">حفظ</button></form>` }
   if (s.type === 'editUser') { const x = (db.users || []).find(y => y.id === s.id); h = `<h2>تعديل ${x?.role === 'provider' ? 'بيانات المحل' : 'بيانات الحساب'}</h2><p class="muted sm">${ROLE[x?.role] || ''}. صاحب الحساب يدخل بعدها بالرقم الجديد ونفس رمزه السري.</p><form data-form="editUser" class="stack">
     <label class="fld" for="eu-name"><span>${x?.role === 'provider' ? 'اسم المحل' : 'الاسم'}</span><input id="eu-name" name="name" value="${esc(x?.name)}" required maxlength="60"></label>
     <label class="fld" for="eu-phone"><span>رقم الجوال</span><input id="eu-phone" name="phone" type="tel" dir="ltr" inputmode="numeric" maxlength="10" value="${esc(x?.phone)}" required ${x?.role === 'admin' ? 'disabled' : ''}></label>
@@ -1956,11 +1983,13 @@ const ACT = {
     if (d.type === 'final') { state.sheet = { type: 'final', id: +d.id, k: d.k || '' }; render(); return }
     if (d.type === 'addr') { const a = d.id ? myAddrs().find(x => x.id === d.id) : null; state.addrForm = a ? { label: a.label, district: a.district, details: a.details || '', nat: a.nat || '', lat: a.lat, lng: a.lng } : { label: myAddrs().length ? 'العمل' : 'البيت', district: defAddr()?.district || db.settings.districts[0], details: '', nat: '', lat: null, lng: null }; state.locForm = state.addrForm; state.autoLocate = !hasLoc(state.addrForm) }
     if (d.type === 'shopLoc') { state.locForm = { lat: me().loc?.lat || null, lng: me().loc?.lng || null }; state.autoLocate = !hasLoc(state.locForm) }
-    if (d.type === 'catalog') state.filters.cat = ''; state.sheet = { type: d.type, id: d.id ? (['item', 'resetPin', 'addr', 'editUser'].includes(d.type) ? d.id : +d.id) : undefined }; render() },
+    if (d.type === 'catalog') state.filters.cat = ''; state.sheet = { type: d.type, id: d.id ? (['item', 'resetPin', 'addr', 'editUser', 'staffPin'].includes(d.type) ? d.id : +d.id) : undefined }; render() },
   close() { state.sheet = null; render() },
   scrim(d, e) { if (e.target.classList.contains('scrim')) { state.sheet = null; render() } },
   pickcat(d) { state.compose.cat = d.keep ? d.id : state.compose.cat === d.id ? '' : d.id; state.compose.scope = 'fav'; render() },
   scope(d) { state.compose.scope = d.k; render() },
+  staffSt(d) { run('staffStatus', { userId: d.id, status: d.k }, d.k === 'active' ? 'تم تفعيل الموظف' : 'تم إيقاف الموظف') },
+  delStaff(d) { const x = (db.staff || []).find(y => y.id === d.id); if (!confirm(`حذف ${x ? x.name : 'الموظف'}؟ طلباته المنفّذة تبقى محسوبة باسمه.`)) return; run('delStaff', { userId: d.id }, 'تم حذف الموظف') },
   per(d) { state.sub.per = d.k; state.perOff = 0; render() },
   perShift(d) { state.perOff = Math.min(0, state.perOff + +d.k); render() },
   grp(d) { state.grpOpen[d.k] = !state.grpOpen[d.k]; render() },
@@ -2117,6 +2146,8 @@ const FORMS = {
     if (!/^\d{4}$/.test(n)) { toast('الرمز الجديد 4 أرقام'); return } if (n !== digits(fd.get('newPin2'))) { toast('الرمزان غير متطابقين'); return }
     run('changePin', { oldPin: digits(fd.get('oldPin')), newPin: n }, 'تغيّر الرمز السري', () => { state.sheet = null });
   },
+  staff(f) { const fd = new FormData(f); run('addStaff', { name: (fd.get('name') || '').trim(), phone: fd.get('phone'), pin: digits(fd.get('pin')), lang: fd.get('lang') }, 'تمت إضافة الموظف', () => { state.sheet = null }) },
+  staffPin(f) { const pin = digits(new FormData(f).get('pin')); if (!/^\d{4}$/.test(pin)) { toast('الرمز 4 أرقام'); return } run('staffStatus', { userId: state.sheet.id, pin }, 'تم تعيين الرمز', () => { state.sheet = null }) },
   editUser(f) { const fd = new FormData(f), x = (db.users || []).find(y => y.id === state.sheet.id); run('editUser', { userId: state.sheet.id, name: (fd.get('name') || '').trim(), phone: fd.get('phone') || x?.phone }, 'تم حفظ التعديل', () => { state.sheet = null }) },
   resetPin(f) { const pin = digits(new FormData(f).get('pin')); if (!/^\d{4}$/.test(pin)) { toast('الرمز 4 أرقام'); return } const id = state.sheet.id; run('resetPin', { userId: id, pin }, 'تم تعيين الرمز الجديد', () => { state.sheet = null }) },
   shop(f) {
