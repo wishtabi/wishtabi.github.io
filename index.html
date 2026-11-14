@@ -399,7 +399,7 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '2.5';
+const APP_VERSION = '2.6';
 const NEED_SERVER = '2.5'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
 const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
 const API_URL = 'https://script.google.com/macros/s/AKfycbznWE9rT2Jv8LhJvek3hIe04uadL6bF6WDL_S_pltjmNCdQJsEAcTm7QFTJWOl_l1w/exec';
@@ -1409,7 +1409,7 @@ function composeForm(mode) {
     ${(t ? CAT(t.cat).visit : c.cat && CAT(c.cat).visit) ? visitWhen('compose') : ''}
     <div class="row2">
       ${(t ? CAT(t.cat).visit : c.cat && CAT(c.cat).visit) ? '<span></span>' : `<label class="sel" for="c-when">${icon('clock', 'sm')}<select id="c-when" data-bind="compose.when" aria-label="الموعد المناسب">${WHENS.map(w => `<option ${c.when === w ? 'selected' : ''}>${w}</option>`).join('')}</select></label>`}
-      <label class="btn ghost file" for="c-photo">${icon('camera', 'sm')} ${c.photo ? 'تغيير الصورة' : 'إرفاق صورة'}<input type="file" accept="image/*" id="c-photo" hidden></label>
+      <button type="button" class="btn ghost file" data-act="pickPhoto">${icon('camera', 'sm')} ${c.photo ? 'تغيير الصورة' : 'إرفاق صورة'}</button>
     </div>
     ${payPick('compose')}
     ${c.photo ? `<div class="thumb"><img src="${c.photo}" alt="الصورة المرفقة"><button type="button" class="x" data-act="unphoto" aria-label="حذف الصورة">${icon('x', 'sm')}</button></div>` : ''}
@@ -1820,7 +1820,7 @@ VIEWS.p_shop = u => {
     <button class="btn dark block">حفظ</button></form>`) +
   card('شعار المحل', `<div class="logo-row"><div class="logo-prev">${shopLogo(u) ? `<img src="${shopLogo(u)}" alt="شعار المحل">` : 'بدون شعار'}</div>
     <div class="stack" style="gap:8px;flex:1"><p class="muted sm" style="margin:0">صورة اسم المحل أو شعاره، تظهر في أعلى التطبيق لك ولموظفينك. الأفضل صورة مربعة.</p>
-    <label class="btn ${u.logoV ? 'ghost' : 'primary'} block" for="logo-file" style="cursor:pointer">${icon('plus', 'sm')} ${u.logoV ? 'تغيير الشعار' : 'ارفع الشعار'}</label><input type="file" id="logo-file" accept="image/*" hidden>
+    <button type="button" class="btn ${u.logoV ? 'ghost' : 'primary'} block" data-act="pickLogo">${icon('plus', 'sm')} ${u.logoV ? 'تغيير الشعار' : 'ارفع الشعار'}</button>
     ${u.logoV ? `<button class="btn danger block" data-act="delLogo">${icon('trash', 'sm')} حذف الشعار</button>` : ''}</div></div>`) +
   card('موقع المحل', `<p class="sm">${hasLoc(u.loc) ? '<span class="tag good">محدد على الخريطة</span> المندوب والعملاء يشوفون موقع محلك ويوصلون له بالخرائط.' : '<span class="tag warn">غير محدد</span> حدد موقع محلك عشان يوصلك المندوب، ويشوف العملاء كم يبعد عنهم.'}</p>
     <button class="btn ${hasLoc(u.loc) ? 'ghost' : 'primary'} block" data-act="sheet" data-type="shopLoc">${icon('pin', 'sm')} ${hasLoc(u.loc) ? 'تعديل الموقع' : 'حدد موقع المحل'}</button>`) + staffCard() + accountCard();
@@ -2049,6 +2049,14 @@ const ACT = {
   scrim(d, e) { if (e.target.classList.contains('scrim')) { state.sheet = null; render() } },
   pickcat(d) { state.compose.cat = d.keep ? d.id : state.compose.cat === d.id ? '' : d.id; state.compose.scope = 'fav'; render() },
   scope(d) { state.compose.scope = d.k; render() },
+  pickPhoto() { pickFile(f => shrinkImage(f).then(u => { state.compose.photo = u; render() }).catch(() => toast('تعذّرت قراءة الصورة، جرّب صورة ثانية'))) },
+  pickLogo() {
+    pickFile(f => { toast('جاري تجهيز الشعار…'); shrinkImage(f, 256, 40000, true).then(async u => {
+      for (let i = 0; i < 20 && state.busy; i++) await new Promise(r => setTimeout(r, 300));
+      const j = await run('setLogo', { logo: u }, null, () => { logoStore[me().id] = { v: me().logoV, src: u }; try { lsSet(LS_LOGO, JSON.stringify(logoStore)) } catch (e) { } });
+      if (j) toast(me().logoV ? 'تم حفظ الشعار' : 'ما انحفظ الشعار في الخادم، تأكد إن Code.gs محدّث');
+    }).catch(() => toast('تعذّرت قراءة الصورة، جرّب صورة PNG أو JPG')) });
+  },
   delLogo() { if (!confirm('حذف شعار المحل؟')) return; run('setLogo', { logo: '' }, 'تم حذف الشعار', () => { delete logoStore[me().id]; try { lsSet(LS_LOGO, JSON.stringify(logoStore)) } catch (e) { } }) },
   staffPerm(d) { run('staffStatus', { userId: d.id, perm: d.k }, d.k ? 'صار مدير محل' : 'رجع موظفاً') },
   staffSt(d) { run('staffStatus', { userId: d.id, status: d.k }, d.k === 'active' ? 'تم تفعيل الموظف' : 'تم إيقاف الموظف') },
@@ -2137,9 +2145,15 @@ document.addEventListener('change', e => {
     render(); return;
   }
   if (t.name === 'regDistricts') { const ds = state.reg.districts, v = t.value; if (t.checked) { if (!ds.includes(v)) ds.push(v) } else ds.splice(ds.indexOf(v), 1); return }
-  if (t.id === 'logo-file') { const f = t.files && t.files[0]; if (!f) return; shrinkImage(f, 256, 40000, true).then(u => run('setLogo', { logo: u }, 'تم حفظ الشعار', () => { logoStore[me().id] = { v: me().logoV, src: u }; try { lsSet(LS_LOGO, JSON.stringify(logoStore)) } catch (e) { } })).catch(() => toast('تعذّرت قراءة الصورة، جرّب صورة ثانية')); t.value = ''; return }
-  if (t.id === 'c-photo') { const f = t.files && t.files[0]; if (!f) return; shrinkImage(f).then(u => { state.compose.photo = u; render() }).catch(() => toast('تعذّرت قراءة الصورة، جرّب صورة ثانية')) }
 });
+/* اختيار ملف: الحقل خارج الصفحة، فما يضيع الاختيار لو تحدّثت الصفحة والنافذة مفتوحة */
+function pickFile(cb) {
+  let inp = document.getElementById('file-picker');
+  if (inp) inp.remove();
+  inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.id = 'file-picker'; inp.hidden = true;
+  inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) cb(f); inp.remove() });
+  document.body.appendChild(inp); inp.click();
+}
 function shrinkImage(file, maxSide, limit, logo) {
   return new Promise((res, rej) => {
     const r = new FileReader();
