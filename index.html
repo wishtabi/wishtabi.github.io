@@ -52,7 +52,11 @@ p{margin:0}
 
 /* header */
 .top{position:sticky;top:0;z-index:20;background:var(--navy);color:var(--on-navy);display:flex;align-items:center;gap:10px;padding:10px 14px;min-height:60px}
-.brand{display:flex;align-items:center;flex:1;gap:8px}
+.brand{display:flex;align-items:center;flex:1;gap:8px;min-width:0;white-space:nowrap}
+.brand>*{flex:none}
+@media (max-width:440px){.top .ver{display:none}.top{gap:8px;padding:10px 10px}.who{max-width:56%}.who-txt b{max-width:96px}}
+.preview-note{background:#fff3d6;color:#6b4b00;font-size:13px;padding:8px 12px;display:flex;align-items:center;gap:8px}
+.preview-note span{flex:1}
 .ver{font-size:10.5px;font-weight:700;color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:1px 7px;align-self:flex-end;margin-bottom:4px;white-space:nowrap;cursor:default}
 .ver.old{color:#fff;background:var(--bad);border-color:var(--bad)}
 .verline{text-align:center;font-size:11.5px;color:var(--muted);margin-top:14px}
@@ -411,7 +415,7 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '2.8';
+const APP_VERSION = '2.9';
 const NEED_SERVER = '2.7'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
 const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
 const API_URL = 'https://script.google.com/macros/s/AKfycbznWE9rT2Jv8LhJvek3hIe04uadL6bF6WDL_S_pltjmNCdQJsEAcTm7QFTJWOl_l1w/exec';
@@ -469,6 +473,7 @@ IC.key = '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>';
 IC.refresh = '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/>';
 IC.users = '<circle cx="9" cy="8" r="3.5"/><path d="M3 20c1-3.5 3.5-5.5 6-5.5s5 2 6 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5c2.5 0 4.2 1.8 5 4.5"/>';
 IC.check = '<path d="M5 12.5l4.5 4.5L19 7"/>';
+IC.eye = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
 IC.qr = '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3zM14 19h2M19 14h2"/>';
 const icon = (n, c = '') => `<svg class="ic ${c}" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 const LOGO = `<span class="logo" aria-label="وش تبي"><span>وش تبي</span><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3 6a4 4 0 0 1 4-4h14a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4h-7l-6 5v-5H7a4 4 0 0 1-4-4z" fill="#EB8420"/><text x="14" y="16.5" text-anchor="middle" font-size="15" font-weight="800" fill="#fff" font-family="Tajawal,sans-serif">؟</text></svg></span>`;
@@ -1348,7 +1353,7 @@ function guestView() {
   const g = state.guest, p = g.shop, c = CAT(p.cat), items = g.menu || [];
   const av = g.logo ? `<span class="pav lg"><img src="${g.logo}" alt="شعار ${esc(p.name)}"></span>` : `<span class="pav">${icon(c.icon)}</span>`;
   const row = i => `<div class="item" data-s="${esc(norm(i.name))}"><span class="nm"><b>${esc(i.name)}</b><span class="muted sm num">${isSvc(p.cat) ? 'يبدأ من ' : ''}${money(i.price)}</span></span><button class="btn ghost sm" data-act="guestOrder">${isSvc(p.cat) ? 'اطلب' : 'أضف'}</button></div>`;
-  return `<header class="top"><div class="brand">${LOGO}${verBadge()}</div><button class="who" data-act="guestLogin"><span class="who-txt"><b>دخول</b><small>عندي حساب</small></span></button></header>
+  return `${g.preview ? `<div class="preview-note">${icon('eye', 'sm')}<span>هذي صفحة محلك مثل ما يشوفها الزبون لما يمسح الباركود.</span><button class="btn dark sm" data-act="endPreview">رجوع لحسابي</button></div>` : ''}<header class="top"><div class="brand">${LOGO}${verBadge()}</div>${g.preview ? '' : `<button class="who" data-act="guestLogin"><span class="who-txt"><b>دخول</b><small>عندي حساب</small></span></button>`}</header>
   <main class="main stack">
     <section class="card"><div class="phead">${av}<div style="flex:1"><h1>${esc(p.name)}</h1><p class="muted sm">${catNames(p)}${p.hours ? ` · ${esc(p.hours)}` : ''} · <span class="star">${ratingText(p)}</span></p></div></div></section>
     <div class="promo"><h3>اطلب من ${esc(p.name)} وأنت في بيتك</h3><p>سجّل برقم جوالك في ثواني، واطلب من كل محلات حيّك: بقالة وخضار ومخابز، وسباكة وكهرباء وتكييف، والدفع عند الاستلام.</p><button class="btn primary sm" data-act="guestOrder">سجّل الحين</button></div>
@@ -2022,6 +2027,7 @@ function sheetHtml() {
   if (s.type === 'qr') { const q = state.qr; h = `<h2>باركود ${esc(u.name)}</h2>${!q ? '<div class="center" style="padding:40px 0"><div class="spin"></div></div>' : q.err ? `<p class="muted">${q.err}</p><button class="btn primary block" data-act="showQr">حاول مرة ثانية</button>` : `<img class="qrcard" src="${q.png}" alt="باركود ${esc(q.name)}">
     <p class="muted sm center-t" style="margin:4px 0 0">اطبعه عند الكاشير أو أرسله لزبائنك. اللي يمسحه يفتح صفحة محلك، ولما يسجّل ينضاف محلك لمفضلته.${db.refCount ? `<br><b>سجّل عن طريقك: ${db.refCount} ${db.refCount === 1 ? 'عميل' : 'عملاء'}</b>` : ''}</p>
     <button class="btn primary block" data-act="qrShare" data-k="share">${icon('send', 'sm')} مشاركة… (واتساب، بلوتوث، رسائل وغيرها)</button>
+    <button class="btn ghost block" data-act="previewQr">${icon('eye', 'sm')} شوف وش يطلع للزبون لما يمسحه</button>
     <div class="sharegrid"><button class="btn ghost" data-act="qrShare" data-k="wa">واتساب</button><button class="btn ghost" data-act="qrShare" data-k="sms">رسالة نصية</button><button class="btn ghost" data-act="qrShare" data-k="dl">تحميل الصورة</button><button class="btn ghost" data-act="qrShare" data-k="copy">نسخ الرابط</button></div>`}` }
   if (s.type === 'staff') h = `<h2>موظف جديد</h2><p class="muted sm">بلّغ الموظف برقمه والرمز، ويدخل بهم من شاشة الدخول العادية.</p><form data-form="staff" class="stack">
     <label class="fld" for="sf-name"><span>اسم الموظف</span><input id="sf-name" name="name" required maxlength="60"></label>
@@ -2115,7 +2121,9 @@ const ACT = {
       if (j) toast(me().logoV ? 'تم حفظ الشعار' : 'ما انحفظ الشعار في الخادم، تأكد إن Code.gs محدّث');
     }).catch(() => toast('تعذّرت قراءة الصورة، جرّب صورة PNG أو JPG')) });
   },
-  guestOrder() { state.boot = 'auth'; state.auth = 'register'; state.reg.role = 'customer'; render(); window.scrollTo(0, 0) },
+  endPreview() { state.guest = null; state.boot = 'ready'; lsSet(LS_REF, ''); render() },
+  previewQr() { const pid = me().id; call('shop', { pid }).then(j => { state.guest = { shop: j.shop, menu: j.menu, logo: j.logo, preview: true }; state.sheet = null; state.boot = 'guest'; render(); window.scrollTo(0, 0) }).catch(e => toast(e.message)) },
+  guestOrder() { if (state.guest && state.guest.preview) { toast('هنا يطلب من الزبون التسجيل برقم جواله، وبعدها يطلب على طول'); return } state.boot = 'auth'; state.auth = 'register'; state.reg.role = 'customer'; render(); window.scrollTo(0, 0) },
   guestLogin() { state.boot = 'auth'; state.auth = 'login'; render() },
   backGuest() { state.boot = 'guest'; render() },
   promoX() { lsSet(LS_PROMO, String(Date.now())); render() },
@@ -2367,7 +2375,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.shee
 async function boot() {
   if (!apiUrl) { state.boot = 'setup'; return render() }
   if (token) {
-    try { await call('sync'); state.boot = 'ready'; setAlertBaseline(); render(); if (SCAN) openScanned(SCAN); return }
+    try {
+      await call('sync'); state.boot = 'ready'; setAlertBaseline();
+      if (SCAN && me().role !== 'customer') { try { const j = await call('shop', { pid: SCAN }); state.guest = { shop: j.shop, menu: j.menu, logo: j.logo, preview: true }; state.boot = 'guest' } catch (e) { toast(e.message) } }
+      render(); if (SCAN && me().role === 'customer') openScanned(SCAN); return
+    }
     catch (e) { if (token) { state.boot = 'error'; state.bootError = e.message; return render() } }
   }
   const ref = SCAN || lsGet(LS_REF);
