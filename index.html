@@ -301,6 +301,8 @@ details.more[open] summary{margin-bottom:12px}
 .pitem{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;text-align:start;width:100%}
 .pitem.on{border-color:var(--accent);background:var(--accent-soft)}
 .pitem .who-av{width:34px;height:34px}
+.hlogo{width:30px;height:30px;border-radius:8px;object-fit:cover;background:#fff;vertical-align:middle;margin-inline-end:8px}
+.pav.lg{background:#fff;border:1px solid var(--line);overflow:hidden;padding:0}.pav.lg img{width:100%;height:100%;object-fit:cover;display:block}
 .who-av.img{width:38px;height:38px;background:#fff;overflow:hidden;border:2px solid rgba(255,255,255,.85)}.who-av.img img{width:100%;height:100%;object-fit:cover;display:block}
 .logo-prev{width:96px;height:96px;border-radius:22px;border:1px solid var(--line);background:var(--bg);display:grid;place-items:center;overflow:hidden;color:var(--muted);font-size:12px;text-align:center;flex:none}.logo-prev img{width:100%;height:100%;object-fit:cover}
 .logo-row{display:flex;gap:14px;align-items:center}
@@ -397,8 +399,8 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '2.4';
-const NEED_SERVER = '2.3'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
+const APP_VERSION = '2.5';
+const NEED_SERVER = '2.5'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
 const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
 const API_URL = 'https://script.google.com/macros/s/AKfycbznWE9rT2Jv8LhJvek3hIe04uadL6bF6WDL_S_pltjmNCdQJsEAcTm7QFTJWOl_l1w/exec';
 
@@ -1216,21 +1218,32 @@ function render() {
   if (state.autoLocate && document.querySelector('[data-map]')) { state.autoLocate = false; setTimeout(locateMe, 300) }
 }
 /* شعار المحل: يُجلب مرة ويُحفظ في الجهاز، ويتجدد إذا غيّره صاحب المحل */
-const LS_LOGO = 'weshtabi_logo';
-let logoCache = (() => { try { return JSON.parse(lsGet(LS_LOGO) || 'null') } catch (e) { return null } })(), logoFetching = false;
-function shopLogo(u) {
-  if (!u || u.role !== 'provider' || !u.logoV) return '';
-  if (logoCache && logoCache.id === u.id && String(logoCache.v) === String(u.logoV)) return logoCache.src;
-  if (!logoFetching) { logoFetching = true; call('getLogo', {}).then(j => { logoCache = { id: u.id, v: j.logoV, src: j.logo }; try { lsSet(LS_LOGO, JSON.stringify(logoCache)) } catch (e) { } render() }).catch(() => { }).finally(() => { logoFetching = false }) }
-  return logoCache && logoCache.id === u.id ? logoCache.src : '';
+const LS_LOGO = 'weshtabi_logos';
+let logoStore = (() => { try { return JSON.parse(lsGet(LS_LOGO) || '{}') || {} } catch (e) { return {} } })();
+const logoBusy = {};
+function logoOf(pid, v, own) {
+  if (!pid || !v) return '';
+  const c = logoStore[pid];
+  if (c && String(c.v) === String(v)) return c.src;
+  if (!logoBusy[pid]) {
+    logoBusy[pid] = true;
+    call('getLogo', own ? {} : { pid }).then(j => {
+      logoStore[pid] = { v: j.logoV || v, src: j.logo || '' };
+      try { lsSet(LS_LOGO, JSON.stringify(logoStore)) } catch (e) { const k = Object.keys(logoStore); if (k.length > 1) { delete logoStore[k[0]]; try { lsSet(LS_LOGO, JSON.stringify(logoStore)) } catch (e2) { } } }
+      render();
+    }).catch(() => { }).finally(() => { setTimeout(() => { logoBusy[pid] = false }, 15000) });
+  }
+  return c ? c.src : '';
 }
+const shopLogo = u => u && u.role === 'provider' ? logoOf(u.id, u.logoV, true) : '';
+const provAv = (p, ic) => { const l = logoOf(p.id, p.logoV); return l ? `<span class="pav lg"><img src="${l}" alt="شعار ${esc(p.name)}"></span>` : `<span class="pav">${icon(ic)}</span>` };
 function verBadge() {
   const sv = (db && db.ver) || (state.config && state.config.ver) || '';
   const old = db ? verNum(sv) < verNum(NEED_SERVER) : !!sv && verNum(sv) < verNum(NEED_SERVER);
   return `<span class="ver ${old ? 'old' : ''}" title="${old ? `الواجهة ${APP_VERSION} تحتاج خادم ${NEED_SERVER} أو أحدث، والموجود ${sv || 'قديم'}: حدّث النشر في Apps Script` : `الواجهة ${APP_VERSION} · الخادم ${sv}`}">v${APP_VERSION}${old ? ` · خادم ${sv || 'قديم'}` : ''}</span>`;
 }
 function header(u, top) {
-  const start = top ? `<button class="iconbtn" data-act="back" aria-label="رجوع">${icon('back')}</button><div class="htitle">${esc(titleOf(top))}</div>` : `<div class="brand">${LOGO}${verBadge()}</div>`;
+  const start = top ? `<button class="iconbtn" data-act="back" aria-label="رجوع">${icon('back')}</button><div class="htitle">${top.v === 'provider' && P(top.id) && logoOf(top.id, P(top.id).logoV) ? `<img class="hlogo" src="${logoOf(top.id, P(top.id).logoV)}" alt="">` : ''}${esc(titleOf(top))}</div>` : `<div class="brand">${LOGO}${verBadge()}</div>`;
   return `<header class="top">${start}${EXT.head(u, top)}<button class="who" data-act="sheet" data-type="me" aria-label="حسابي">${shopLogo(u) ? `<span class="who-av img"><img src="${shopLogo(u)}" alt="شعار ${esc(u.name)}"></span>` : `<span class="who-av">${esc(((u.staff ? u.staff.name : u.name) || '؟').trim()[0])}</span>`}<span class="who-txt"><b>${esc(u.staff ? u.staff.name : u.name)}</b><small>${u.staff ? `${u.staff.manager ? 'مدير' : 'موظف'} · ${esc(u.name)}` : ROLE[u.role]}</small></span></button></header>`;
 }
 function titleOf(t) { switch (t.v) { case 'provider': return P(t.id)?.name || ''; case 'category': return CAT(t.id).name; case 'checkout': return 'تأكيد الطلب'; case 'order': return `طلب #${t.id}` } return '' }
@@ -1365,7 +1378,7 @@ const favBtn = (p, big) => me().role !== 'customer' ? '' : big
   : `<button class="fav ${isFav(p.id) ? 'on' : ''}" data-act="fav" data-id="${p.id}" aria-pressed="${isFav(p.id)}" aria-label="${isFav(p.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}: ${esc(p.name)}">${icon('star')}</button>`;
 function providerCard(p) {
   const c = CAT(p.cat);
-  return `<div class="pcard"><button class="pmain" data-act="open" data-v="provider" data-id="${p.id}"><span class="pav">${icon(c.icon)}</span>
+  return `<div class="pcard"><button class="pmain" data-act="open" data-v="provider" data-id="${p.id}">${provAv(p, c.icon)}
     <span class="pbody"><b>${esc(p.name)}</b><span class="muted sm">${catNames(p)}${p.hours ? ` · ${esc(p.hours)}` : ''}</span></span>
     <span class="pmeta"><span class="star">${ratingText(p)}</span><span class="muted xs">${feeLabel(p)}</span>${me().role === 'customer' && kmBetween(defAddr(), p.loc) != null ? `<span class="dist">${icon('pin', 'xs')} ${kmText(kmBetween(defAddr(), p.loc))}</span>` : ''}</span></button>${favBtn(p)}</div>`;
 }
@@ -1415,7 +1428,7 @@ VIEWS.home = u => {
   return `<section class="hello"><h1>${greet} يا ${esc(u.name)}</h1><p class="muted sm">${icon('pin', 'xs')} ${d ? `حي ${esc(d)}` : 'أكمل عنوانك من حسابي'}</p></section>
   ${defAddr() && !hasLoc(defAddr()) ? `<section class="card"><div class="loc-row"><span class="pav">${icon('pin')}</span><span style="flex:1"><b>حدد موقع ${esc(defAddr().label)} على الخريطة</b><br><span class="muted sm">عشان يوصلك المندوب والفني بدون اتصالات.</span></span></div><button class="btn primary block" data-act="sheet" data-type="addr" data-id="${defAddr().id}">${icon('pin', 'sm')} حدد الموقع</button></section>` : ''}
   <section class="card ask"><h2 class="ask-title">وش تبي؟</h2>${composeForm('home')}</section>
-  ${favs.length ? `<section><div class="sec-h"><h2>مفضلتي</h2><button class="link" data-act="tab" data-k="favs">الكل</button></div><div class="favrow">${favs.map(p => `<button class="favchip" data-act="open" data-v="provider" data-id="${p.id}"><span class="pav">${icon(CAT(p.cat).icon)}</span><span><b>${esc(p.name)}</b><small>${CAT(p.cat).name}</small></span></button>`).join('')}</div></section>` : ''}
+  ${favs.length ? `<section><div class="sec-h"><h2>مفضلتي</h2><button class="link" data-act="tab" data-k="favs">الكل</button></div><div class="favrow">${favs.map(p => `<button class="favchip" data-act="open" data-v="provider" data-id="${p.id}">${provAv(p, CAT(p.cat).icon)}<span><b>${esc(p.name)}</b><small>${CAT(p.cat).name}</small></span></button>`).join('')}</div></section>` : ''}
   ${active.length ? `<section><div class="sec-h"><h2>طلباتك الجارية</h2><button class="link" data-act="tab" data-k="orders">كل طلباتي</button></div><div class="list">${active.slice(0, 3).map(orderCard).join('')}</div></section>` : ''}
   <section><div class="sec-h"><h2>الخدمات</h2></div><div class="cats">${CATS.map(c => `<button class="cat" data-act="open" data-v="category" data-id="${c.id}">${icon(c.icon)}<span>${c.name}</span></button>`).join('')}</div></section>
   <section><div class="sec-h"><h2>يخدمون حيّك</h2><span class="muted sm">${provs.length} مقدم خدمة</span></div>${provs.length ? `<div class="list">${provs.map(providerCard).join('')}</div>` : empty('ما فيه مقدمو خدمة معتمدون في حيّك بعد. اكتب طلبك فوق ويوصل لهم أول ما ينضمون.')}</section>`;
@@ -1466,7 +1479,7 @@ function loadMenu(pid) {
 function providerView(id) {
   const p = P(id); if (!p) return empty('المحل غير متاح الآن.');
   const c = CAT(p.cat);
-  const head = `<section class="card"><div class="phead"><span class="pav">${icon(c.icon)}</span><div style="flex:1"><h1>${esc(p.name)}</h1><p class="muted sm">${catNames(p)} · <span class="star">${ratingText(p)}</span></p></div></div>
+  const head = `<section class="card"><div class="phead">${provAv(p, c.icon)}<div style="flex:1"><h1>${esc(p.name)}</h1><p class="muted sm">${catNames(p)} · <span class="star">${ratingText(p)}</span></p></div></div>
     <div class="facts"><div class="fact"><span>الدوام</span><b>${esc(p.hours || '—')}</b></div>
     ${c.visit ? `<div class="fact"><span>الزيارة من</span><b>${p.visitFee ? money(p.visitFee) : 'بعرض'}</b></div>` : `<div class="fact"><span>التوصيل</span><b>${p.delivers ? money(p.deliveryFee) : 'استلام فقط'}</b></div>`}
     <div class="fact"><span>${c.visit ? 'يخدم' : 'أقل طلب'}</span><b>${c.visit ? plural(p.districts.length, 'حي واحد', 'حيّين', 'أحياء') : money(p.minOrder)}</b></div></div>
@@ -2036,7 +2049,7 @@ const ACT = {
   scrim(d, e) { if (e.target.classList.contains('scrim')) { state.sheet = null; render() } },
   pickcat(d) { state.compose.cat = d.keep ? d.id : state.compose.cat === d.id ? '' : d.id; state.compose.scope = 'fav'; render() },
   scope(d) { state.compose.scope = d.k; render() },
-  delLogo() { if (!confirm('حذف شعار المحل؟')) return; run('setLogo', { logo: '' }, 'تم حذف الشعار', () => { logoCache = null; lsSet(LS_LOGO, '') }) },
+  delLogo() { if (!confirm('حذف شعار المحل؟')) return; run('setLogo', { logo: '' }, 'تم حذف الشعار', () => { delete logoStore[me().id]; try { lsSet(LS_LOGO, JSON.stringify(logoStore)) } catch (e) { } }) },
   staffPerm(d) { run('staffStatus', { userId: d.id, perm: d.k }, d.k ? 'صار مدير محل' : 'رجع موظفاً') },
   staffSt(d) { run('staffStatus', { userId: d.id, status: d.k }, d.k === 'active' ? 'تم تفعيل الموظف' : 'تم إيقاف الموظف') },
   delStaff(d) { const x = (db.staff || []).find(y => y.id === d.id); if (!confirm(`حذف ${x ? x.name : 'الموظف'}؟ طلباته المنفّذة تبقى محسوبة باسمه.`)) return; run('delStaff', { userId: d.id }, 'تم حذف الموظف') },
@@ -2124,7 +2137,7 @@ document.addEventListener('change', e => {
     render(); return;
   }
   if (t.name === 'regDistricts') { const ds = state.reg.districts, v = t.value; if (t.checked) { if (!ds.includes(v)) ds.push(v) } else ds.splice(ds.indexOf(v), 1); return }
-  if (t.id === 'logo-file') { const f = t.files && t.files[0]; if (!f) return; shrinkImage(f, 256, 40000, true).then(u => run('setLogo', { logo: u }, 'تم حفظ الشعار', () => { logoCache = { id: me().id, v: 'new', src: u } })).catch(() => toast('تعذّرت قراءة الصورة، جرّب صورة ثانية')); t.value = ''; return }
+  if (t.id === 'logo-file') { const f = t.files && t.files[0]; if (!f) return; shrinkImage(f, 256, 40000, true).then(u => run('setLogo', { logo: u }, 'تم حفظ الشعار', () => { logoStore[me().id] = { v: me().logoV, src: u }; try { lsSet(LS_LOGO, JSON.stringify(logoStore)) } catch (e) { } })).catch(() => toast('تعذّرت قراءة الصورة، جرّب صورة ثانية')); t.value = ''; return }
   if (t.id === 'c-photo') { const f = t.files && t.files[0]; if (!f) return; shrinkImage(f).then(u => { state.compose.photo = u; render() }).catch(() => toast('تعذّرت قراءة الصورة، جرّب صورة ثانية')) }
 });
 function shrinkImage(file, maxSide, limit, logo) {
