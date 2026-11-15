@@ -12,8 +12,17 @@
     addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
   }
 
+  // من يفتح التطبيق من أيقونته يصل بـ ?src=app (start_url في manifest) — نتذكّره ولا نعرض له شريط التثبيت مرة ثانية
+  var APPKEY = 'wt_app';
+  function markApp() { try { localStorage.setItem(APPKEY, '1'); } catch (e) {} }
+  try {
+    var q = new URLSearchParams(location.search);
+    if (q.get('src') === 'app') { markApp(); q.delete('src'); history.replaceState(history.state, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); }
+  } catch (e) {}
+  var fromIcon = false; try { fromIcon = localStorage.getItem(APPKEY) === '1'; } catch (e) {}
+
   var ua = navigator.userAgent;
-  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  var standalone = (window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui)').matches) || navigator.standalone === true || fromIcon;
   var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
   var inApp = /FBAN|FBAV|Instagram|Snapchat|Line\/|TikTok|musical_ly|Twitter|; wv\)/.test(ua);
   var iosSafari = ios && !inApp && !/CriOS|FxiOS|EdgiOS|OPiOS|GSA\//.test(ua);
@@ -60,7 +69,7 @@
       sub = 'أنت تفتح الرابط من داخل تطبيق آخر.';
       steps = ['اضغط القائمة ' + DOTS + ' أعلى الصفحة', 'اختر <b>«فتح في المتصفح»</b>', 'من المتصفح اضغط <b>«تثبيت التطبيق»</b>'];
     } else if (huawei) {
-      steps = ['افتح الرابط في <b>متصفح هواوي</b> أو Chrome', 'اضغط القائمة ' + DOTS + ' أو ☰', 'اختر <b>«إضافة إلى الشاشة الرئيسية»</b> أو <b>«تثبيت التطبيق»</b>'];
+      steps = ['افتح الرابط في <b>متصفح هواوي</b> (Browser)', 'اضغط القائمة ☰ أو ' + DOTS, 'اختر <b>«إضافة إلى»</b> ثم <b>«الشاشة الرئيسية»</b>'];
     } else {
       steps = ['افتح الرابط في <b>Chrome</b>', 'اضغط القائمة ' + DOTS + ' أعلى الشاشة', 'اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>'];
     }
@@ -78,7 +87,7 @@
     if (deferred) {
       var d = deferred; deferred = null;
       d.prompt();
-      return d.userChoice.then(function (r) { if (r.outcome !== 'accepted') snooze(3); hideBar(); return r.outcome; });
+      return d.userChoice.then(function (r) { if (r.outcome === 'accepted') markApp(); else snooze(3); hideBar(); return r.outcome; });
     }
     guide();
     return Promise.resolve('guide');
@@ -103,7 +112,7 @@
     document.dispatchEvent(new Event('wt-installable'));
     setTimeout(function () { if (deferred) showBar('يصير على شاشة جوالك مثل أي تطبيق', 'تثبيت'); }, 2500);
   });
-  addEventListener('appinstalled', function () { deferred = null; hideBar(); document.dispatchEvent(new Event('wt-installed')); });
+  addEventListener('appinstalled', function () { markApp(); deferred = null; hideBar(); document.dispatchEvent(new Event('wt-installed')); });
   if (ios && !standalone) setTimeout(function () { showBar('بخطوتين من زر المشاركة', 'الطريقة'); }, 3500);
 
   window.WT_PWA = {

@@ -5,7 +5,7 @@
   "description": "اطلب من محلات حيّك ومقدمي الخدمات: تموينات، خضار، مخابز، مغاسل، سباكة، كهرباء، تكييف وغيرها.",
   "lang": "ar",
   "dir": "rtl",
-  "start_url": "/",
+  "start_url": "/?src=app",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

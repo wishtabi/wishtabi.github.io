@@ -3,7 +3,7 @@
    - الخطوط ومكتبة الخرائط: من النسخة المحفوظة أولاً (أسرع فتح).
    - طلبات الخادم (Apps Script) والخرائط وبيئة التطوير /dev/: لا تُلمس إطلاقاً.
    عند تعديل هذا الملف غيّر رقم الإصدار V. */
-const V = 'wt-v1';
+const V = 'wt-v3';
 const CORE = ['/', '/download/', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png'];
 const CDN = ['fonts.googleapis.com', 'fonts.gstatic.com', 'cdnjs.cloudflare.com'];
 
