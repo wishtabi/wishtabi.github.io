@@ -1,0 +1,19 @@
+{
+  "name": "وش تبي",
+  "short_name": "وش تبي",
+  "description": "كل خدمات حيّك في مكان واحد: بقالة وخضار ومخابز، وسباكة وكهرباء وتكييف",
+  "lang": "ar",
+  "dir": "rtl",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1B2A4A",
+  "theme_color": "#1B2A4A",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
