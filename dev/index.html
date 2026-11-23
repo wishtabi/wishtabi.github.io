@@ -434,7 +434,7 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '3.5';
+const APP_VERSION = '3.6';
 const NEED_SERVER = '3.3'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
 const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
 /* بيئتان: التشغيل على الرابط الأساسي، والتطوير على /dev/ بنفس الملف */
@@ -1143,10 +1143,13 @@ const SCAN = (() => { try { const q = new URLSearchParams(location.search), v = 
 const shopLink = pid => `${location.origin}${location.pathname}?s=${encodeURIComponent(pid)}`;
 /* التثبيت كتطبيق على الجوال */
 let installEvt = null;
-const isStandalone = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true } catch (e) { return false } };
+let appInstalled = false; /* مثبّت على هذا الجهاز: لا نعيد عرض التثبيت حتى لو فُتح من المتصفح */
+const isStandalone = () => { try { return appInstalled || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true } catch (e) { return false } };
+try { if (lsGet('weshtabi_installed')) appInstalled = true; if (navigator.getInstalledRelatedApps) navigator.getInstalledRelatedApps().then(a => { if (a && a.length) { appInstalled = true; if (typeof render === 'function' && state.boot) render() } }).catch(() => { }) } catch (e) { }
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (typeof render === 'function' && state.boot) render() });
-window.addEventListener('appinstalled', () => { installEvt = null; toast('تم تثبيت وش تبي على جوالك'); render() });
+window.addEventListener('appinstalled', () => { installEvt = null; appInstalled = true; lsSet('weshtabi_installed', '1'); toast('تم تثبيت وش تبي على جوالك'); render() });
+try { if (matchMedia('(display-mode: standalone)').matches) lsSet('weshtabi_installed', '1') } catch (e) { }
 if ('serviceWorker' in navigator && !/\/dev(\/|$)/.test(location.pathname) && (location.protocol === 'https:' || location.hostname === 'localhost')) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
 const LS_INST = 'weshtabi_inst';
 function installCard(text) {
