@@ -4,15 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#1B2A4A">
-<!-- PWA: تثبيت التطبيق على الجوال -->
-<link rel="manifest" href="/manifest.json">
-<link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png">
-<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="وش تبي">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>وش تبي</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="وش تبي">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -84,6 +83,11 @@ p{margin:0}
 .crow .cb{flex:1;min-width:0}.crow .cb b{font-size:13.5px}.crow .cb small{display:block;color:var(--muted)}
 .crow.keep{opacity:.55}.crow .ca{text-align:end;white-space:nowrap}
 .ctools{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:13px}
+.instcard{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;box-shadow:var(--shadow);position:relative}
+.instcard img{border-radius:11px;flex:none}.instcard span{flex:1;min-width:0}.instcard b{display:block;font-size:14px}.instcard small{color:var(--muted);font-size:12px}
+.instcard .x{border:0;background:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 2px}
+.steps-i{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;gap:10px}.steps-i li{counter-increment:s;display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.steps-i li::before{content:counter(s);flex:none;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px}
 .devbar{background:repeating-linear-gradient(-45deg,#b42318 0 12px,#c8331f 12px 24px);color:#fff;text-align:center;font-size:12.5px;font-weight:800;padding:5px 10px;letter-spacing:.3px}
 .strip.withqr{padding-inline-end:64px}
 .qrbtn{position:absolute;inset-inline-end:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:5px;border:0;border-radius:10px;background:var(--navy);color:#fff;padding:4px 9px 4px 7px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.15)}
@@ -430,12 +434,12 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '3.2';
-const NEED_SERVER = '3.2'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
+const APP_VERSION = '3.5';
+const NEED_SERVER = '3.3'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
 const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
 /* بيئتان: التشغيل على الرابط الأساسي، والتطوير على /dev/ بنفس الملف */
 const API_PROD = 'https://script.google.com/macros/s/AKfycbznWE9rT2Jv8LhJvek3hIe04uadL6bF6WDL_S_pltjmNCdQJsEAcTm7QFTJWOl_l1w/exec';
-const API_DEV = ''; /* رابط نشر بيئة التطوير */
+const API_DEV = 'https://script.google.com/macros/s/AKfycbymCFYzTLUQ58bJAzSkP1yNTnS3dddqphtUYhLbuzGFXmdc4ebpy9mCySFPG_iMIYJV/exec'; /* رابط نشر بيئة التطوير */
 const IS_DEV = /\/dev(\/|$)/.test(location.pathname);
 const API_URL = IS_DEV ? API_DEV : API_PROD;
 
@@ -1137,6 +1141,18 @@ const EXT = { head: () => '', userTop: () => '', userBtn: () => '', meBtns: () =
 const LS_REF = 'weshtabi_ref';
 const SCAN = (() => { try { const q = new URLSearchParams(location.search), v = q.get('s'); if (v) { lsSet(LS_REF, v); q.delete('s'); history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash) } return v || '' } catch (e) { return '' } })();
 const shopLink = pid => `${location.origin}${location.pathname}?s=${encodeURIComponent(pid)}`;
+/* التثبيت كتطبيق على الجوال */
+let installEvt = null;
+const isStandalone = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true } catch (e) { return false } };
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; if (typeof render === 'function' && state.boot) render() });
+window.addEventListener('appinstalled', () => { installEvt = null; toast('تم تثبيت وش تبي على جوالك'); render() });
+if ('serviceWorker' in navigator && !/\/dev(\/|$)/.test(location.pathname) && (location.protocol === 'https:' || location.hostname === 'localhost')) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { }));
+const LS_INST = 'weshtabi_inst';
+function installCard(text) {
+  if (isStandalone() || Date.now() - +(lsGet(LS_INST) || 0) < 7 * 864e5) return '';
+  return `<div class="instcard"><img src="icon-192.png" alt="" width="44" height="44"><span><b>ثبّت وش تبي على جوالك</b><small>${text}</small></span><button class="btn primary sm" data-act="install">ثبّت</button><button class="x" data-act="instX" aria-label="إغلاق">×</button></div>`;
+}
 const isTyping = () => { const a = document.activeElement; return a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) };
 async function quietSync() {
   if (state.boot !== 'ready' || state.busy || state.sheet || isTyping() || document.visibilityState !== 'visible') return;
@@ -1178,6 +1194,7 @@ function alertMap() {
     }
     if (u.role === 'provider') {
       if (o.status === 'new') add(`n:${o.id}`, o.providerId === u.id || o.targetedToMe ? `طلب جديد موجّه لك #${o.id}` : `طلب جديد في الحي #${o.id}`);
+      if (o.editedAt && ['new', 'accepted'].includes(o.status) && (o.providerId === u.id || o.targetedToMe || o.status === 'new')) add(`e:${o.id}:${o.editedAt}`, `عدّل العميل طلب #${o.id}`);
       if (o.providerId === u.id) {
         add(`s:${o.id}:${o.status}`, { accepted: o.type === 'text' ? `العميل قبل عرضك على طلب #${o.id}` : '', with_courier: `المندوب استلم طلب #${o.id}`, delivered: o.courierId ? `تم تسليم طلب #${o.id} للعميل` : '', closed: `العميل قيّم طلب #${o.id}`, cancelled: `أُلغي طلب #${o.id}` }[o.status]);
         if (o.courierId) add(`c:${o.id}`, `${o.courierName} قبل مهمة توصيل طلب #${o.id}`);
@@ -1381,7 +1398,7 @@ function guestView() {
   return `${g.preview ? `<div class="preview-note">${icon('eye', 'sm')}<span>هذي صفحة محلك مثل ما يشوفها الزبون لما يمسح الباركود.</span><button class="btn dark sm" data-act="endPreview">رجوع لحسابي</button></div>` : ''}<header class="top"><div class="brand">${LOGO}${verBadge()}</div>${g.preview ? '' : `<button class="who" data-act="guestLogin"><span class="who-txt"><b>دخول</b><small>عندي حساب</small></span></button>`}</header>
   <main class="main stack">
     <section class="card"><div class="phead">${av}<div style="flex:1"><h1>${esc(p.name)}</h1><p class="muted sm">${catNames(p)}${p.hours ? ` · ${esc(p.hours)}` : ''} · <span class="star">${ratingText(p)}</span></p></div></div></section>
-    <div class="promo"><h3>اطلب من ${esc(p.name)} وأنت في بيتك</h3><p>سجّل برقم جوالك في ثواني، واطلب من كل محلات حيّك: بقالة وخضار ومخابز، وسباكة وكهرباء وتكييف، والدفع عند الاستلام.</p><button class="btn primary sm" data-act="guestOrder">سجّل الحين</button></div>
+    <div class="promo"><h3>اطلب من ${esc(p.name)} وأنت في بيتك</h3><p>سجّل برقم جوالك في ثواني، واطلب من كل محلات حيّك: بقالة وخضار ومخابز، وسباكة وكهرباء وتكييف، والدفع عند الاستلام.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary sm" data-act="guestOrder">سجّل الحين</button>${isStandalone() ? '' : '<button class="btn ghost sm" data-act="install" style="background:rgba(255,255,255,.14);color:#fff;border:0">ثبّت التطبيق</button>'}</div></div>
     ${items.length ? menuBrowser(p, items, row, 'gm') : empty('القائمة قيد التجهيز. سجّل واكتب طلبك للمحل مباشرة.')}
   </main>
   <div class="guestbar"><p>للطلب من <b>${esc(p.name)}</b> سجّل حساب مجاني</p><button class="btn primary" data-act="guestOrder">سجّل واطلب</button></div>`;
@@ -1435,6 +1452,7 @@ function orderCard(o) {
     if (u.role === 'provider') { if (quotedByMe(o)) tags.push('<span class="tag">أرسلت عرضك</span>'); else if (o.targetedToMe) tags.push('<span class="tag accent">موجّه لك</span>') }
     else if (o.quoteCount) tags.push(`<span class="tag accent">${plural(o.quoteCount, 'عرض واحد', 'عرضان', 'عروض')}</span>`);
   }
+  if (o.editedAt && ['new', 'accepted'].includes(o.status)) tags.push(`<span class="tag ${u.role === 'customer' ? '' : 'accent'}">${u.role === 'customer' ? 'عدّلته' : 'عدّله العميل'}</span>`);
   if (availTask(o)) tags.push('<span class="tag accent">بانتظار مندوب</span>');
   if (o.status === 'delivered' && u.role === 'customer') tags.push('<span class="tag accent">قيّم الخدمة</span>');
   if (o.brokerId && u.role !== 'customer') tags.push('<span class="tag">عبر منسّق</span>');
@@ -1510,6 +1528,7 @@ VIEWS.home = u => {
   const favs = favProviders(), provs = providersIn(d).sort((a, b) => (isFav(b.id) - isFav(a.id)) || (avg(b) - avg(a)));
   return `<section class="hello"><h1>${greet} يا ${esc(u.name)}</h1><p class="muted sm">${icon('pin', 'xs')} ${d ? `حي ${esc(d)}` : 'أكمل عنوانك من حسابي'}</p></section>
   ${defAddr() && !hasLoc(defAddr()) ? `<section class="card"><div class="loc-row"><span class="pav">${icon('pin')}</span><span style="flex:1"><b>حدد موقع ${esc(defAddr().label)} على الخريطة</b><br><span class="muted sm">عشان يوصلك المندوب والفني بدون اتصالات.</span></span></div><button class="btn primary block" data-act="sheet" data-type="addr" data-id="${defAddr().id}">${icon('pin', 'sm')} حدد الموقع</button></section>` : ''}
+  ${installCard('يفتح بضغطة من شاشتك مثل أي تطبيق، بدون تحميل من المتجر.')}
   ${promoCard(u)}
   <section class="card ask"><h2 class="ask-title">وش تبي؟</h2>${composeForm('home')}</section>
   ${favs.length ? `<section><div class="sec-h"><h2>مفضلتي</h2><button class="link" data-act="tab" data-k="favs">الكل</button></div><div class="favrow">${favs.map(p => `<button class="favchip" data-act="open" data-v="provider" data-id="${p.id}">${provAv(p, CAT(p.cat).icon)}<span><b>${esc(p.name)}</b><small>${CAT(p.cat).name}</small></span></button>`).join('')}</div></section>` : ''}
@@ -1632,7 +1651,7 @@ function cartTotals() {
 function cartBar(top) {
   if (!top || top.v !== 'provider' || !state.cart || state.cart.pid !== top.id) return '';
   const t = cartTotals(); if (!t.count) return '';
-  return `<button class="cartbar" data-act="open" data-v="checkout"><span>${isSvc(P(top.id)?.cat) ? 'متابعة الحجز' : 'متابعة الطلب'} <span class="cnt">${t.count}</span></span><span class="num">${money(t.subtotal)}</span></button>`;
+  return `<button class="cartbar" data-act="open" data-v="checkout"><span>${state.cart && state.cart.editId ? `متابعة تعديل #${state.cart.editId}` : isSvc(P(top.id)?.cat) ? 'متابعة الحجز' : 'متابعة الطلب'} <span class="cnt">${t.count}</span></span><span class="num">${money(t.subtotal)}</span></button>`;
 }
 /* الآجل يظهر فقط إذا كل المحلات المستهدفة مفعّلته من إعدادات محلها */
 function laterOK(key, t) {
@@ -1651,6 +1670,7 @@ function checkoutView() {
   const u = me(), c = state.cart; if (!c) return empty('السلة فارغة');
   const p = P(c.pid), m = state.menus[c.pid] || [], t = cartTotals();
   if (!p) return empty('المحل غير متاح الآن.');
+  const ed = c.editId ? `<div class="note">${icon('edit', 'sm')}<span>تعدّل طلب #${c.editId}. غيّر الكميات من صفحة المحل، واحفظ التعديل.</span><button class="link" data-act="editCancel">تراجع</button></div>` : '';
   const rows = Object.entries(c.items).map(([id, q]) => { const it = m.find(x => x.id === id); return it ? `<div class="line"><span>${esc(it.name)} <span class="muted">× ${fmtQty(q, it, itemCat(it, p))}</span></span><span class="num">${money(it.price * q)}</span></div>` : '' }).join('');
   if (isSvc(p.cat)) return card(esc(p.name), `<div class="lines">${rows}</div>`) +
     card('الموعد والموقع', `${addrChooser('co', true)}${visitWhen('co')}
@@ -1658,7 +1678,7 @@ function checkoutView() {
     <label class="fld" for="co-note"><span>وصف المشكلة أو ملاحظة للفني (اختياري)</span><textarea id="co-note" data-bind="co.note" rows="2" placeholder="مثال: التسريب تحت مغسلة المطبخ من أمس">${esc(state.co.note)}</textarea></label>`) +
     card('', `<div class="lines"><div class="line total"><span>التقدير المبدئي</span><span class="num">${money(t.subtotal)}</span></div></div>
     <div class="note info">${icon('wallet', 'sm')}<span>الأسعار تبدأ من المبلغ الموضح، والسعر النهائي يتفق عليه الفني معك في الموقع ويسجّله عند الانتهاء. ${state.co.pay === 'later' ? 'الدفع آجل.' : 'الدفع بعد التنفيذ.'}</span></div>
-    <button class="btn primary block" data-act="placeOrder" ${!t.count ? 'disabled' : ''}>أرسل طلب الخدمة</button>`);
+    <button class="btn primary block" data-act="placeOrder" ${!t.count ? 'disabled' : ''}>${c.editId ? 'احفظ التعديل' : 'أرسل طلب الخدمة'}</button>`);
   if (!p.delivers) state.co.fulfil = 'pickup';
   const del = state.co.fulfil === 'delivery' ? p.deliveryFee : 0, below = t.subtotal < p.minOrder;
   const shopish = ['laundry', 'tailor'].includes(p.cat);
@@ -1675,7 +1695,7 @@ function checkoutView() {
     <div class="line total"><span>الإجمالي</span><span class="num">${money(t.subtotal + del)}</span></div></div>
     <div class="note ${state.co.pay === 'later' ? 'bad' : ''}">${icon('wallet', 'sm')} ${state.co.pay === 'later' ? 'الدفع آجل، يُسدَّد لاحقاً لمقدم الخدمة.' : 'الدفع عند الاستلام، نقداً أو تحويل مباشر.'}</div>
     ${below ? `<div class="note warn">أقل طلب عند ${esc(p.name)} هو ${money(p.minOrder)}. أضف أصنافاً بقيمة ${money(p.minOrder - t.subtotal)}.</div>` : ''}
-    <button class="btn primary block" data-act="placeOrder" ${below || !t.count ? 'disabled' : ''}>أكّد الطلب · ${money(t.subtotal + del)}</button>`);
+    <button class="btn primary block" data-act="placeOrder" ${below || !t.count ? 'disabled' : ''}>${c.editId ? 'احفظ التعديل' : 'أكّد الطلب'} · ${money(t.subtotal + del)}</button>`);
 }
 
 /* ============================================================
@@ -1777,6 +1797,7 @@ function actionsCard(o) {
   if (u.role === 'customer' && o.customerId === u.id) {
     if (o.status === 'new' && o.type === 'text' && o.targetCount && !o.providerId) b.push(btn('openToAll', `${icon('send', 'sm')} عمّم الطلب على كل مقدمي ${CAT(o.cat).name} في الحي`, 'ghost'));
     if (o.status === 'rejected' && o.type === 'text') b.push(btn('openToAll', 'أرسل الطلب لكل مقدمي الخدمة في الحي'));
+    if (['new', 'accepted'].includes(o.status) && (o.type === 'menu' || !o.acceptedQuote)) b.push(o.type === 'menu' ? btn('editMenu', `${icon('edit', 'sm')} عدّل الطلب`, 'ghost') : btn('sheet', `${icon('edit', 'sm')} عدّل نص الطلب`, 'ghost', 'data-type="editText"'));
     if (['new', 'accepted'].includes(o.status)) b.push(btn('sheet', 'إلغاء الطلب', 'danger', 'data-type="cancel"'));
   }
   if (u.role === 'provider' && o.providerId === u.id) {
@@ -1855,7 +1876,7 @@ VIEWS.p_orders = u => {
   const working = os.filter(o => o.providerId === u.id && ['accepted', 'in_progress', 'with_courier'].includes(o.status));
   const done = os.filter(o => o.providerId === u.id && ['delivered', 'closed', 'cancelled', 'rejected'].includes(o.status));
   const k = state.sub.p_orders;
-  return locNote + seg('p_orders', [['targeted', 'موجّهة لي', targeted.filter(o => !quotedByMe(o)).length, custNames(targeted)], ['open', 'مفتوحة في الحي', open.filter(o => !quotedByMe(o)).length, custNames(open)], ['working', 'قيد التنفيذ', working.length, custNames(working)], ['done', 'منتهية', done.filter(isDue).length, done.filter(isDue).length ? 'آجل غير مسدد: ' + custNames(done.filter(isDue)) : '']]) +
+  return locNote + installCard('تنبيهات الطلبات توصلك أسرع، ويفتح بضغطة من شاشتك.') + seg('p_orders', [['targeted', 'موجّهة لي', targeted.filter(o => !quotedByMe(o)).length, custNames(targeted)], ['open', 'مفتوحة في الحي', open.filter(o => !quotedByMe(o)).length, custNames(open)], ['working', 'قيد التنفيذ', working.length, custNames(working)], ['done', 'منتهية', done.filter(isDue).length, done.filter(isDue).length ? 'آجل غير مسدد: ' + custNames(done.filter(isDue)) : '']]) +
     (k === 'targeted' ? listOr(targeted, 'ما فيه طلبات موجّهة لك الآن. لما يضيفك عميل لمفضلته أو يختارك، تظهر طلباته هنا.')
       : k === 'open' ? (open.length ? `<p class="muted sm">طلبات ${catNames(u)} المفتوحة في أحيائك. أرسل عرضك والعميل يختار.</p>${listOr(open, '')}` : empty('ما فيه طلبات مفتوحة في أحيائك الآن.'))
         : k === 'working' ? listOr(working, 'ما فيه طلبات قيد التنفيذ.') : groupedOrders(done, o => o.customerId, o => o.customerName, 'ما فيه طلبات منتهية في هذه الفترة.'));
@@ -1959,9 +1980,22 @@ VIEWS.a_overview = u => {
     <div class="tile"><span>قيمة المنفّذ</span><b class="num">${money(done.reduce((a, o) => a + o.total, 0))}</b><small>${done.length} طلب منتهٍ</small></div>
     <div class="tile"><span>طالبو الخدمة</span><b class="num">${us.filter(x => x.role === 'customer').length}</b><small>حساب مسجّل</small></div>
     <div class="tile"><span>مقدمو الخدمة</span><b class="num">${us.filter(x => x.role === 'provider' && x.status === 'active').length}</b><small>${us.filter(x => x.status === 'pending').length} بانتظار الاعتماد</small></div></div>
+  ${commCard(done)}
   ${byCat.length ? card('الطلبات حسب الخدمة', `<div class="hbar">${byCat.map(x => `<div><span>${x.c.name}</span><i style="width:${x.n / mx * 100}%"></i><em>${x.n}</em></div>`).join('')}</div>`) : ''}
   ${accountCard()}`;
 };
+/* عمولات المنصة: تُحسب عند التسليم، وفق النسب السارية وقت إنشاء الطلب */
+function commCard(done) {
+  const r = perRange(), inP = done.filter(o => (o.deliveredAt || o.createdAt) >= r.a && (o.deliveredAt || o.createdAt) < r.b);
+  const plat = inP.reduce((a, o) => a + (o.platformFee || 0), 0), brk = inP.reduce((a, o) => a + (o.brokerFee || 0), 0);
+  const free = inP.filter(o => o.rates && o.rates.trial).length;
+  const rows = groupBy(inP.filter(o => o.platformFee || o.brokerFee), o => o.providerName || '—').map(([n, a]) => ({ n, c: a.length, v: a.reduce((x, o) => x + (o.total || 0), 0), f: a.reduce((x, o) => x + (o.platformFee || 0), 0) })).sort((a, b) => b.f - a.f);
+  return card('العمولات', `<div class="pernav">${seg('per', [['day', 'يومي'], ['week', 'أسبوعي'], ['month', 'شهري'], ['year', 'سنوي']]).replace(/data-act="sub" data-key="per"/g, 'data-act="per"')}</div>
+    <div class="perbar"><button class="iconbtn light" data-act="perShift" data-k="-1" aria-label="الفترة السابقة">›</button><span class="lbl">${r.l}</span><button class="iconbtn light" data-act="perShift" data-k="1" aria-label="الفترة التالية" ${state.perOff >= 0 ? 'disabled style="opacity:.35"' : ''}>‹</button></div>
+    <div class="tiles"><div class="tile hl"><span>عمولة المنصة</span><b class="num">${money(plat)}</b><small>${inP.length} طلب مسلّم</small></div><div class="tile"><span>عمولة المنسّقين</span><b class="num">${money(brk)}</b><small>${free ? `${free} طلب مجاني (تجربة)` : 'على الطلبات المنسّقة'}</small></div></div>
+    ${rows.length ? `<div class="lines">${rows.map(x => `<div class="line"><span>${esc(x.n)} <span class="muted sm">(${x.c} طلب · ${money(x.v)})</span></span><b class="num">${money(x.f)}</b></div>`).join('')}</div>` : `<p class="muted sm" style="margin:0">ما فيه عمولات في هذه الفترة.${free ? ' الطلبات المسلّمة كانت ضمن فترة التجربة.' : ''}</p>`}
+    <p class="muted xs" style="margin:0">العمولة تنحسب لما يتسلّم الطلب، بالنسبة اللي كانت سارية وقت إنشائه. الطلبات اللي انطلبت أثناء التجربة تبقى مجانية حتى لو تسلّمت بعدها.</p>`);
+}
 VIEWS.a_users = u => {
   const all = (db.users || []).filter(x => x.id !== u.id).sort((a, b) => b.createdAt - a.createdAt), pend = all.filter(x => x.status === 'pending');
   const k = state.sub.a_users, list = k === 'pending' ? pend : all;
@@ -2037,6 +2071,7 @@ function sheetHtml() {
   const u = me(); let h = '';
   if (s.type === 'me') h = (u.staff ? `<h2>${esc(u.staff.name)}</h2><p class="muted sm">${u.staff.manager ? 'مدير' : 'موظف'} في ${esc(u.name)} · ${phone(u.staff.phone)}</p>` : `<h2>${esc(u.name)}</h2><p class="muted sm">${ROLE[u.role]} · ${phone(u.phone)}</p>`) + `
     <div class="actions">${u.role === 'customer' ? `<button class="btn ghost block" data-act="tab" data-k="account">${icon('user', 'sm')} بياناتي وعنواني</button>` : ''}
+    ${isStandalone() ? '' : `<button class="btn ghost block" data-act="install"><img src="icon-192.png" alt="" width="20" height="20" style="border-radius:5px;vertical-align:middle"> ثبّت وش تبي كتطبيق على جوالك</button>`}
     <button class="btn ghost block" data-act="sheet" data-type="pin">${icon('key', 'sm')} تغيير الرمز السري</button>
     ${EXT.meBtns(u) || `<button class="btn danger block" data-act="logout">${icon('logout', 'sm')} تسجيل الخروج</button>`}</div>
     ${u.role !== 'admin' ? `<h3 class="card-h">لغة الترجمة · Language</h3>
@@ -2079,6 +2114,12 @@ function sheetHtml() {
     <div class="row2"><label class="fld" for="pn-new"><span>الرمز الجديد</span><input id="pn-new" name="newPin" type="password" inputmode="numeric" maxlength="4" dir="ltr" required></label>
     <label class="fld" for="pn-new2"><span>أعد كتابته</span><input id="pn-new2" name="newPin2" type="password" inputmode="numeric" maxlength="4" dir="ltr" required></label></div>
     <button class="btn primary block">حفظ الرمز</button></form>`;
+  if (s.type === 'install') h = `<h2>ثبّت وش تبي على جوالك</h2><p class="muted sm">بعد التثبيت تطلع أيقونة «وش تبي» على شاشتك، ويفتح بشاشة كاملة مثل أي تطبيق. بدون تحميل من المتجر وبدون تحديثات.</p>
+    ${isIOS() ? `<ol class="steps-i"><li>افتح الموقع من متصفح <b>Safari</b>.</li><li>اضغط زر <b>المشاركة</b> ⬆️ أسفل الشاشة.</li><li>اختر <b>«إضافة إلى الشاشة الرئيسية»</b>، وبعدها <b>إضافة</b>.</li></ol>`
+      : `<ol class="steps-i"><li>افتح الموقع من متصفح <b>Chrome</b>.</li><li>اضغط القائمة <b>⋮</b> فوق.</li><li>اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>، وبعدها <b>تثبيت</b>.</li></ol>`}
+    <button class="btn ghost block" data-act="close">تمام</button>`;
+  if (s.type === 'editText') { const o = O(s.id); h = `<h2>تعديل طلب #${s.id}</h2><p class="muted sm">${o && o.quoteCount ? 'بعد التعديل تنلغي العروض الحالية، ومقدمو الخدمة يرسلون عروض جديدة على النص الجديد.' : 'التعديل يوصل لمقدم الخدمة مباشرة.'}</p>
+    <form data-form="editText" class="stack"><label class="fld" for="et-t"><span>طلبك</span><textarea id="et-t" name="text" rows="5" maxlength="500" required>${esc(o?.text)}</textarea></label><button class="btn primary block">احفظ التعديل</button></form>` }
   if (s.type === 'qr') { const q = state.qr; h = `<h2>باركود ${esc(u.name)}</h2>${!q ? '<div class="center" style="padding:40px 0"><div class="spin"></div></div>' : q.err ? `<p class="muted">${q.err}</p><button class="btn primary block" data-act="showQr">حاول مرة ثانية</button>` : `<img class="qrcard" src="${q.png}" alt="باركود ${esc(q.name)}">
     <p class="muted sm center-t" style="margin:4px 0 0">اطبعه عند الكاشير أو أرسله لزبائنك. اللي يمسحه يفتح صفحة محلك، ولما يسجّل ينضاف محلك لمفضلته.${db.refCount ? `<br><b>سجّل عن طريقك: ${db.refCount} ${db.refCount === 1 ? 'عميل' : 'عملاء'}</b>` : ''}</p>
     <button class="btn primary block" data-act="qrShare" data-k="share">${icon('send', 'sm')} مشاركة… (واتساب، بلوتوث، رسائل وغيرها)</button>
@@ -2215,6 +2256,19 @@ const ACT = {
   per(d) { state.sub.per = d.k; state.perOff = 0; render() },
   perShift(d) { state.perOff = Math.min(0, state.perOff + +d.k); render() },
   grp(d) { state.grpOpen[d.k] = !state.grpOpen[d.k]; render() },
+  editMenu(d) {
+    const o = O(d.id); if (!o) return;
+    state.cart = { pid: o.providerId, editId: o.id, items: Object.fromEntries(o.items.map(i => [i.id, i.qty])) };
+    state.co = { fulfil: o.fulfil === 'visit' ? 'pickup' : o.fulfil, note: o.text || '', when: o.when || 'أقرب وقت', pay: o.pay };
+    state.stack = [{ v: 'provider', id: o.providerId }]; render(); window.scrollTo(0, 0);
+    toast('غيّر الكميات أو أضف أصناف، وبعدها اضغط «متابعة» واحفظ التعديل');
+  },
+  async install() {
+    if (installEvt) { installEvt.prompt(); try { const r = await installEvt.userChoice; if (r.outcome === 'accepted') lsSet(LS_INST, String(Date.now())) } catch (e) { } installEvt = null; render(); return }
+    state.sheet = { type: 'install' }; render();
+  },
+  instX() { lsSet(LS_INST, String(Date.now())); render() },
+  editCancel() { const id = state.cart && state.cart.editId; state.cart = null; state.stack = id ? [{ v: 'order', id }] : []; render() },
   payMode(d) { state[d.key].pay = d.k; render() },
   markPaid(d) { run('markPaid', { id: d.id }, 'تم تسجيل السداد') },
   unphoto() { state.compose.photo = null; render() },
@@ -2232,6 +2286,11 @@ const ACT = {
   placeOrder() {
     const c = state.cart, lines = Object.entries(c.items).map(([id, qty]) => ({ id, qty }));
     const svc = isSvc(P(c.pid)?.cat);
+    if (c.editId) {
+      const id = c.editId;
+      return run('editOrder', { id, lines, fulfil: svc ? 'visit' : state.co.fulfil, note: state.co.note.trim(), when: svc ? whenOf('co') : state.co.when, pay: state.co.pay === 'later' ? 'later' : 'now' }, 'تم حفظ التعديل، ووصل لمقدم الخدمة',
+        () => { state.cart = null; state.stack = [{ v: 'order', id }]; window.scrollTo(0, 0) });
+    }
     run('createMenuOrder', { pid: c.pid, lines, addrId: addrById(state.co.addrId)?.id, fulfil: svc ? 'visit' : state.co.fulfil, note: state.co.note.trim(), when: svc ? whenOf('co') : state.co.when, pay: state.co.pay === 'later' ? 'later' : 'now' }, () => `وصل طلبك إلى ${P(c.pid)?.name || 'المحل'}`,
       j => { state.cart = null; state.compose.target = null; state.stack = [{ v: 'order', id: j.orderId }]; window.scrollTo(0, 0) });
   },
@@ -2306,7 +2365,7 @@ const loadImg = src => new Promise((res, rej) => { const i = new Image(); i.onlo
 async function makeQrCard(u) {
   if (!window.qrcode) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js');
   const url = shopLink(u.id), logo = shopLogo(u), qr = qrcode(0, 'H'); qr.addData(url); qr.make();
-  const n = qr.getModuleCount(), W = 1080, H = 1400, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const n = qr.getModuleCount(), W = 1080, H = 1660, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), font = getComputedStyle(document.body).fontFamily;
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
   g.fillStyle = '#1b2a44'; g.fillRect(0, 0, W, 230);
@@ -2327,7 +2386,19 @@ async function makeQrCard(u) {
   }
   g.fillStyle = '#1b2a44'; g.font = `800 52px ${font}`; g.fillText('امسح الباركود واطلب', W / 2, y0 + box + 95);
   g.fillStyle = '#6b7689'; g.font = `500 34px ${font}`; g.fillText('بقالة · خضار · مخابز · سباكة · كهرباء · تكييف', W / 2, y0 + box + 150);
-  g.direction = 'ltr'; g.font = `600 30px ${font}`; g.fillText(url.replace(/^https?:\/\//, ''), W / 2, H - 40);
+  /* شريط المنصات: يعمل على الويب وكتطبيق على أندرويد وآيفون والكمبيوتر */
+  const py = y0 + box + 200;
+  g.fillStyle = '#f2f4f8'; rr(70, py, W - 140, 190, 30); g.fill();
+  g.fillStyle = '#1b2a44'; g.font = `800 38px ${font}`; g.fillText('متاح على الويب · وكتطبيق على جوالك', W / 2, py + 58);
+  const plats = [['أندرويد', 'phone'], ['آيفون', 'phone'], ['كمبيوتر', 'laptop']], cw = (W - 200) / 3;
+  plats.forEach(([label, kind], i) => {
+    const cx = W - 100 - cw * i - cw / 2, iy = py + 92; g.strokeStyle = '#e58a00'; g.lineWidth = 6; g.lineJoin = 'round';
+    if (kind === 'phone') { rr(cx - 95, iy, 34, 56, 7); g.stroke(); g.fillStyle = '#e58a00'; g.fillRect(cx - 83, iy + 46, 10, 4) }
+    else { rr(cx - 104, iy + 4, 50, 34, 4); g.stroke(); g.beginPath(); g.moveTo(cx - 114, iy + 50); g.lineTo(cx - 44, iy + 50); g.stroke() }
+    g.fillStyle = '#1b2a44'; g.font = `700 36px ${font}`; g.textAlign = 'right'; g.fillText(label, cx + 75, iy + 42); g.textAlign = 'center';
+  });
+  g.fillStyle = '#6b7689'; g.font = `500 28px ${font}`; g.fillText('بدون تحميل من المتجر', W / 2, py + 178);
+  g.direction = 'ltr'; g.fillStyle = '#6b7689'; g.font = `600 30px ${font}`; g.fillText(url.replace(/^https?:\/\//, ''), W / 2, H - 40);
   return { pid: u.id, name: u.name, url, png: c.toDataURL('image/png') };
 }
 function pickFile(cb) {
@@ -2427,6 +2498,7 @@ const FORMS = {
     const fd = new FormData(f), name = fd.get('name').trim(), price = fd.get('price'); if (!name || price === '') { toast('اكتب الاسم والسعر'); return }
     run('saveItem', { itemId: state.sheet.id || '', name, price, sec: fd.get('sec') || '' }, 'حُفظ الصنف', () => { state.sheet = null });
   },
+  editText(f) { const id = state.sheet.id; run('editOrder', { id, text: (new FormData(f).get('text') || '').trim() }, 'تم حفظ التعديل', () => { state.sheet = null }) },
   clean(f) {
     const fd = new FormData(f), q = { scope: fd.get('scope'), before: new Date(fd.get('before') + 'T00:00:00').getTime(), withDue: fd.get('withDue') === 'on' };
     state.cleanDraft = { scope: q.scope, before: fd.get('before'), withDue: q.withDue };
@@ -2463,6 +2535,5 @@ async function boot() {
 render(); boot();
 
 </script>
-<script src="/pwa.js"></script>
 </body>
 </html>
