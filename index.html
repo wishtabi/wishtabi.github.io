@@ -434,8 +434,8 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '3.6';
-const NEED_SERVER = '3.3'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
+const APP_VERSION = '3.8';
+const NEED_SERVER = '3.4'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
 const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
 /* بيئتان: التشغيل على الرابط الأساسي، والتطوير على /dev/ بنفس الملف */
 const API_PROD = 'https://script.google.com/macros/s/AKfycbznWE9rT2Jv8LhJvek3hIe04uadL6bF6WDL_S_pltjmNCdQJsEAcTm7QFTJWOl_l1w/exec';
@@ -1239,7 +1239,7 @@ const state = {
   reg: { role: 'customer', name: '', phone: '', pin: '', pin2: '', district: '', details: '', cat: '', cats: [], hours: '', vehicle: '', districts: [], lang: 'ar' },
   tab: '', stack: [], cart: null, co: { fulfil: 'delivery', note: '', when: 'أقرب وقت' },
   compose: { text: '', cat: '', when: 'أقرب وقت', photo: null, target: null, scope: 'fav' },
-  perOff: 0, grpOpen: {}, moreOpen: {},
+  perOff: 0, stOff: -1, grpOpen: {}, moreOpen: {},
   sub: { per: 'day', incBy: 'cust', orders: 'current', p_orders: 'targeted', a_orders: 'active', a_users: 'pending' },
   sheet: null, rate: 5, rateText: '', filters: {}, menus: {}, menuLoading: {}, photos: {}, photoLoading: {}
 };
@@ -1282,8 +1282,9 @@ function renderCore() {
   if (state.boot === 'loading') { app.innerHTML = `<div class="center full">${LOGO}<div class="spin" role="status" aria-label="جارٍ التحميل"></div></div>`; return }
   if (state.boot === 'setup') { app.innerHTML = setupView(); return }
   if (state.boot === 'error') { app.innerHTML = `<div class="center full">${LOGO}<p>${esc(state.bootError)}</p><button class="btn primary" data-act="retry">${icon('refresh', 'sm')} حاول مرة ثانية</button>${!API_URL ? `<button class="link" data-act="changeApi">تغيير رابط الخادم</button>` : ''}</div>`; return }
-  if (state.boot === 'guest') { app.innerHTML = guestView(); applyFilters(); hscrolls(); return }
-  if (state.boot === 'auth' || !db) { app.innerHTML = authView(); return }
+  const pre = state.sheet && state.sheet.type === 'install' ? sheetHtml() : '';
+  if (state.boot === 'guest') { app.innerHTML = guestView() + pre; applyFilters(); hscrolls(); return }
+  if (state.boot === 'auth' || !db) { app.innerHTML = authView() + pre; return }
   const u = me();
   if (u.status !== 'active') { app.innerHTML = header(u, null) + `<main class="main">${pendingView(u)}</main>` + sheetHtml(); return }
   ensureTab();
@@ -1408,7 +1409,7 @@ function guestView() {
 }
 function authView() {
   const districts = state.config?.districts || ['السعادة'], r = state.reg;
-  const hero = `<div class="auth-hero">${LOGO}<p>كل خدمات حيّك في مكان واحد</p><span class="ver" style="align-self:center;margin:6px 0 0">v${APP_VERSION}</span></div>`;
+  const hero = `<div class="auth-hero">${LOGO}<p>كل خدمات حيّك في مكان واحد</p><span class="ver" style="align-self:center;margin:6px 0 0">v${APP_VERSION}</span>${isStandalone() || IS_DEV ? '' : `<button class="btn ghost sm" data-act="install" style="align-self:center;margin-top:12px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25)"><img src="icon-192.png" alt="" width="18" height="18" style="border-radius:4px;vertical-align:middle"> ثبّت التطبيق على جوالك</button>`}</div>`;
   if (state.auth === 'login') return `<div class="auth">${hero}<div class="auth-body stack"><section class="card"><h2>تسجيل الدخول</h2>
     <form data-form="login" class="stack">
       <label class="fld" for="l-phone"><span>رقم الجوال</span><input id="l-phone" name="phone" type="tel" inputmode="numeric" dir="ltr" placeholder="05xxxxxxxx" autocomplete="tel" required></label>
@@ -1879,7 +1880,7 @@ VIEWS.p_orders = u => {
   const working = os.filter(o => o.providerId === u.id && ['accepted', 'in_progress', 'with_courier'].includes(o.status));
   const done = os.filter(o => o.providerId === u.id && ['delivered', 'closed', 'cancelled', 'rejected'].includes(o.status));
   const k = state.sub.p_orders;
-  return locNote + installCard('تنبيهات الطلبات توصلك أسرع، ويفتح بضغطة من شاشتك.') + seg('p_orders', [['targeted', 'موجّهة لي', targeted.filter(o => !quotedByMe(o)).length, custNames(targeted)], ['open', 'مفتوحة في الحي', open.filter(o => !quotedByMe(o)).length, custNames(open)], ['working', 'قيد التنفيذ', working.length, custNames(working)], ['done', 'منتهية', done.filter(isDue).length, done.filter(isDue).length ? 'آجل غير مسدد: ' + custNames(done.filter(isDue)) : '']]) +
+  return commAlert(u) + locNote + installCard('تنبيهات الطلبات توصلك أسرع، ويفتح بضغطة من شاشتك.') + seg('p_orders', [['targeted', 'موجّهة لي', targeted.filter(o => !quotedByMe(o)).length, custNames(targeted)], ['open', 'مفتوحة في الحي', open.filter(o => !quotedByMe(o)).length, custNames(open)], ['working', 'قيد التنفيذ', working.length, custNames(working)], ['done', 'منتهية', done.filter(isDue).length, done.filter(isDue).length ? 'آجل غير مسدد: ' + custNames(done.filter(isDue)) : '']]) +
     (k === 'targeted' ? listOr(targeted, 'ما فيه طلبات موجّهة لك الآن. لما يضيفك عميل لمفضلته أو يختارك، تظهر طلباته هنا.')
       : k === 'open' ? (open.length ? `<p class="muted sm">طلبات ${catNames(u)} المفتوحة في أحيائك. أرسل عرضك والعميل يختار.</p>${listOr(open, '')}` : empty('ما فيه طلبات مفتوحة في أحيائك الآن.'))
         : k === 'working' ? listOr(working, 'ما فيه طلبات قيد التنفيذ.') : groupedOrders(done, o => o.customerId, o => o.customerName, 'ما فيه طلبات منتهية في هذه الفترة.'));
@@ -1917,6 +1918,7 @@ VIEWS.p_income = u => {
     <div class="tile"><span>تقييمك</span><b class="num">${u.ratingCount ? avg(u).toFixed(1) : '—'}</b><small>من ${u.ratingCount} تقييم</small></div>
     <div class="tile"><span>العمولة المستحقة</span><b class="num">${money(comm)}</b><small>${db.settings.trial ? 'مجانية في التجربة' : 'للمنصة والمنسّق'}</small></div></div>
     ${due.length ? `<section class="duebox"><h3>${icon('wallet', 'sm')} مبالغ آجلة على العملاء: <span class="num">${money(due.reduce((s, o) => s + o.total, 0))}</span></h3><div class="lines">${groupBy(due, o => o.customerName).map(([n, a]) => `<div class="line"><span>${esc(n)} <span class="muted">(${plural(a.length, 'طلب', 'طلبان', 'طلبات')})</span></span><b class="num">${money(a.reduce((s, o) => s + o.total, 0))}</b></div>`).join('')}</div><p class="xs" style="margin:8px 0 0">افتح الطلب واضغط «تم السداد» لما تستلم المبلغ.</p></section>` : ''}
+    ${provCommCard(u)}
     ${(db.staff || []).length ? seg('incBy', [['cust', 'حسب العميل'], ['staff', 'حسب الموظف']]) : ''}
     <section><div class="sec-h"><h2>الطلبات المنتهية ${state.sub.incBy === 'staff' && (db.staff || []).length ? 'حسب الموظف' : 'حسب العميل'}</h2></div>${state.sub.incBy === 'staff' && (db.staff || []).length
       ? groupedOrders(mine, o => o.doneBy || u.id, o => !o.doneBy || o.doneBy === u.id ? `${u.name} (المالك)` : o.doneByName || 'موظف سابق', 'ما فيه طلبات منتهية في هذه الفترة.', 'موظف')
@@ -1984,10 +1986,55 @@ VIEWS.a_overview = u => {
     <div class="tile"><span>طالبو الخدمة</span><b class="num">${us.filter(x => x.role === 'customer').length}</b><small>حساب مسجّل</small></div>
     <div class="tile"><span>مقدمو الخدمة</span><b class="num">${us.filter(x => x.role === 'provider' && x.status === 'active').length}</b><small>${us.filter(x => x.status === 'pending').length} بانتظار الاعتماد</small></div></div>
   ${commCard(done)}
+  ${settleCard()}
   ${byCat.length ? card('الطلبات حسب الخدمة', `<div class="hbar">${byCat.map(x => `<div><span>${x.c.name}</span><i style="width:${x.n / mx * 100}%"></i><em>${x.n}</em></div>`).join('')}</div>`) : ''}
   ${accountCard()}`;
 };
 /* عمولات المنصة: تُحسب عند التسليم، وفق النسب السارية وقت إنشاء الطلب */
+/* التسوية الشهرية للعمولة: عمولة كل شهر تُسدَّد قبل يوم محدد من الشهر التالي */
+const AR_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+const mKey = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` };
+const mLabel = k => { const [y, m] = k.split('-').map(Number); return `${AR_MONTHS[m - 1]} ${y}` };
+const mShift = (k, n) => { const [y, m] = k.split('-').map(Number); return mKey(new Date(y, m - 1 + n, 1)) };
+const dueDayOf = () => (db.settings && db.settings.dueDay) || 10;
+const dueDate = k => { const [y, m] = k.split('-').map(Number); return new Date(y, m, dueDayOf(), 23, 59) };
+const commFee = o => (o.platformFee || 0) + (o.brokerFee || 0);
+function commMonths(pid) {
+  const m = {};
+  db.orders.filter(o => o.providerId === pid && ['delivered', 'closed'].includes(o.status) && commFee(o) > 0).forEach(o => { const k = mKey(o.deliveredAt || o.createdAt); (m[k] = m[k] || { month: k, fee: 0, count: 0, value: 0 }); m[k].fee += commFee(o); m[k].count++; m[k].value += o.total || 0 });
+  return Object.values(m).map(x => Object.assign(x, { fee: Math.round(x.fee * 100) / 100 })).sort((a, b) => b.month.localeCompare(a.month));
+}
+const settleOf = (pid, k) => (db.settlements || []).find(x => x.providerId === pid && x.month === k);
+function settleState(pid, k) {
+  if (settleOf(pid, k)) return 'paid';
+  if (k >= mKey(Date.now())) return 'open';
+  return Date.now() > +dueDate(k) ? 'late' : 'due';
+}
+const dShort = d => `${d.getDate()} ${AR_MONTHS[d.getMonth()]}`;
+const settleTag = (pid, k) => ({ paid: '<span class="tag good">مسدّدة</span>', open: '<span class="tag">تتجمّع</span>', due: `<span class="tag accent">تُسدَّد قبل ${dShort(dueDate(k))}</span>`, late: '<span class="tag bad">متأخرة</span>' })[settleState(pid, k)];
+function provCommCard(u) {
+  const ms = commMonths(u.id).slice(0, 12);
+  return card('عمولة المنصة الشهرية', `<p class="muted sm" style="margin-top:0">عمولة كل شهر تُسدَّد للمنصة قبل يوم ${dueDayOf()} من الشهر اللي بعده.${db.settings.trial ? ' الطلبات اللي انطلبت في الفترة التجريبية بدون عمولة.' : ''}</p>
+    ${ms.length ? `<div class="lines">${ms.map(x => `<div class="line" style="align-items:center"><span><b>${mLabel(x.month)}</b> <span class="muted sm">(${x.count} طلب · ${money(x.value)})</span></span><span style="display:flex;gap:6px;align-items:center">${settleTag(u.id, x.month)}<b class="num">${money(x.fee)}</b></span></div>`).join('')}</div>` : '<p class="muted sm" style="margin:0">ما عليك عمولات للحين.</p>'}`);
+}
+function commAlert(u) {
+  if (u.role !== 'provider' || (u.staff && !u.staff.manager)) return '';
+  const ms = commMonths(u.id).filter(x => ['late', 'due'].includes(settleState(u.id, x.month)));
+  if (!ms.length) return '';
+  const late = ms.filter(x => settleState(u.id, x.month) === 'late'), sum = ms.reduce((a, x) => a + x.fee, 0);
+  return `<div class="note ${late.length ? 'bad' : 'warn'}">${icon('wallet', 'sm')}<span>${late.length ? `عليك عمولة متأخرة للمنصة: <b>${money(late.reduce((a, x) => a + x.fee, 0))}</b> (${late.map(x => mLabel(x.month)).join('، ')}).` : `عمولة ${mLabel(ms[0].month)}: <b>${money(sum)}</b>، تُسدَّد قبل ${dShort(dueDate(ms[0].month))}.`} <button class="link" data-act="tab" data-k="p_income">التفاصيل</button></span></div>`;
+}
+function settleCard() {
+  const k = mShift(mKey(Date.now()), state.stOff), provs = (db.users || []).filter(x => x.role === 'provider');
+  const rows = provs.map(p => { const x = commMonths(p.id).find(y => y.month === k); return x ? Object.assign({ p }, x) : null }).filter(Boolean).sort((a, b) => b.fee - a.fee);
+  const tot = rows.reduce((a, x) => a + x.fee, 0), got = rows.filter(x => settleOf(x.p.id, k)).reduce((a, x) => a + x.fee, 0);
+  const late = rows.filter(x => settleState(x.p.id, k) === 'late').length, isOpen = k >= mKey(Date.now());
+  return card('تسوية العمولات الشهرية', `<div class="perbar"><button class="iconbtn light" data-act="stShift" data-k="-1" aria-label="الشهر السابق">›</button><span class="lbl">${mLabel(k)}${isOpen ? ' · الشهر الحالي' : ''}</span><button class="iconbtn light" data-act="stShift" data-k="1" aria-label="الشهر التالي" ${state.stOff >= 0 ? 'disabled style="opacity:.35"' : ''}>‹</button></div>
+    <div class="tiles"><div class="tile hl"><span>المستحق</span><b class="num">${money(tot)}</b><small>${isOpen ? 'يتجمّع للحين' : `قبل ${dShort(dueDate(k))}`}</small></div><div class="tile"><span>المحصّل</span><b class="num">${money(got)}</b><small>${late ? `<span style="color:var(--bad)">${late} محل متأخر</span>` : `الباقي ${money(tot - got)}`}</small></div></div>
+    ${rows.length ? `<div class="stack" style="gap:8px">${rows.map(x => { const st = settleOf(x.p.id, k); return `<div class="line" style="align-items:center;gap:8px;flex-wrap:wrap"><span><b>${esc(x.p.name)}</b> <span class="muted sm">(${x.count} طلب · ${money(x.value)})</span><br>${settleTag(x.p.id, k)} <b class="num">${money(x.fee)}</b></span>
+      ${isOpen ? '' : st ? `<button class="btn ghost sm" data-act="settle" data-id="${x.p.id}" data-k="${k}" data-undo="1">تراجع عن السداد</button>` : `<button class="btn primary sm" data-act="settle" data-id="${x.p.id}" data-k="${k}" data-v="${x.fee}">${icon('check', 'xs')} تم السداد</button>`}</div>` }).join('')}</div>` : `<p class="muted sm" style="margin:0">ما فيه عمولات في ${mLabel(k)}.</p>`}
+    ${isOpen && rows.length ? '<p class="muted xs" style="margin:0">تسجيل السداد يكون بعد ما يخلص الشهر.</p>' : ''}`);
+}
 function commCard(done) {
   const r = perRange(), inP = done.filter(o => (o.deliveredAt || o.createdAt) >= r.a && (o.deliveredAt || o.createdAt) < r.b);
   const plat = inP.reduce((a, o) => a + (o.platformFee || 0), 0), brk = inP.reduce((a, o) => a + (o.brokerFee || 0), 0);
@@ -2054,6 +2101,7 @@ VIEWS.a_settings = u => {
     <label class="fld" for="st-p"><span>عمولة المنصة بدون منسّق (%)</span><input id="st-p" name="platformRate" type="number" min="0" max="50" step="0.5" value="${s.platformRate}"></label>
     <div class="row2"><label class="fld" for="st-bp"><span>المنصة مع منسّق (%)</span><input id="st-bp" name="brokerPlatformRate" type="number" min="0" max="50" step="0.5" value="${s.brokerPlatformRate}"></label>
     <label class="fld" for="st-b"><span>المنسّق (%)</span><input id="st-b" name="brokerRate" type="number" min="0" max="50" step="0.5" value="${s.brokerRate}"></label></div>
+    <label class="fld" for="st-due"><span>آخر يوم لسداد عمولة الشهر (من الشهر التالي)</span><input id="st-due" name="dueDay" type="number" min="1" max="28" step="1" value="${s.dueDay || 10}"></label>
     <label class="fld" for="st-d"><span>الأحياء المخدومة (حي في كل سطر)</span><textarea id="st-d" name="districts" rows="4">${esc(s.districts.join('\n'))}</textarea></label>
     <p class="muted xs">تغيير النسب يسري على الطلبات الجديدة فقط.</p>
     <button class="btn dark block">حفظ الإعدادات</button></form>`) +
@@ -2071,7 +2119,7 @@ VIEWS.a_settings = u => {
    ============================================================ */
 function sheetHtml() {
   const s = state.sheet; if (!s) return '';
-  const u = me(); let h = '';
+  const u = db ? me() : {}; let h = '';
   if (s.type === 'me') h = (u.staff ? `<h2>${esc(u.staff.name)}</h2><p class="muted sm">${u.staff.manager ? 'مدير' : 'موظف'} في ${esc(u.name)} · ${phone(u.staff.phone)}</p>` : `<h2>${esc(u.name)}</h2><p class="muted sm">${ROLE[u.role]} · ${phone(u.phone)}</p>`) + `
     <div class="actions">${u.role === 'customer' ? `<button class="btn ghost block" data-act="tab" data-k="account">${icon('user', 'sm')} بياناتي وعنواني</button>` : ''}
     ${isStandalone() ? '' : `<button class="btn ghost block" data-act="install"><img src="icon-192.png" alt="" width="20" height="20" style="border-radius:5px;vertical-align:middle"> ثبّت وش تبي كتطبيق على جوالك</button>`}
@@ -2119,6 +2167,7 @@ function sheetHtml() {
     <button class="btn primary block">حفظ الرمز</button></form>`;
   if (s.type === 'install') h = `<h2>ثبّت وش تبي على جوالك</h2><p class="muted sm">بعد التثبيت تطلع أيقونة «وش تبي» على شاشتك، ويفتح بشاشة كاملة مثل أي تطبيق. بدون تحميل من المتجر وبدون تحديثات.</p>
     ${isIOS() ? `<ol class="steps-i"><li>افتح الموقع من متصفح <b>Safari</b>.</li><li>اضغط زر <b>المشاركة</b> ⬆️ أسفل الشاشة.</li><li>اختر <b>«إضافة إلى الشاشة الرئيسية»</b>، وبعدها <b>إضافة</b>.</li></ol>`
+      : /huaweibrowser|samsungbrowser/i.test(navigator.userAgent) ? `<ol class="steps-i"><li>اضغط <b>قائمة المتصفح</b> (☰ أو ⋮).</li><li>دوّر على <b>«إضافة إلى الشاشة الرئيسية»</b> أو <b>«إضافة صفحة إلى ← الشاشة الرئيسية»</b>.</li><li>أكّد بالضغط على <b>إضافة</b>.</li></ol><p class="muted xs" style="margin:8px 0 0">وإذا تبيه يفتح بشاشة كاملة مثل التطبيقات، افتح الرابط من <b>Chrome</b> وثبّته من هناك.</p>`
       : `<ol class="steps-i"><li>افتح الموقع من متصفح <b>Chrome</b>.</li><li>اضغط القائمة <b>⋮</b> فوق.</li><li>اختر <b>«تثبيت التطبيق»</b> أو <b>«إضافة إلى الشاشة الرئيسية»</b>، وبعدها <b>تثبيت</b>.</li></ol>`}
     <button class="btn ghost block" data-act="close">تمام</button>`;
   if (s.type === 'editText') { const o = O(s.id); h = `<h2>تعديل طلب #${s.id}</h2><p class="muted sm">${o && o.quoteCount ? 'بعد التعديل تنلغي العروض الحالية، ومقدمو الخدمة يرسلون عروض جديدة على النص الجديد.' : 'التعديل يوصل لمقدم الخدمة مباشرة.'}</p>
@@ -2247,6 +2296,12 @@ const ACT = {
   },
   delLogo() { if (!confirm('حذف شعار المحل؟')) return; run('setLogo', { logo: '' }, 'تم حذف الشعار', () => { delete logoStore[me().id]; try { lsSet(LS_LOGO, JSON.stringify(logoStore)) } catch (e) { } }) },
   staffPerm(d) { run('staffStatus', { userId: d.id, perm: d.k }, d.k ? 'صار مدير محل' : 'رجع موظفاً') },
+  stShift(d) { state.stOff = Math.min(0, state.stOff + +d.k); render() },
+  settle(d) {
+    const p = (db.users || []).find(x => x.id === d.id), undo = !!d.undo;
+    if (!confirm(undo ? `إلغاء تسجيل سداد ${p ? p.name : ''} لشهر ${mLabel(d.k)}؟` : `تأكيد: ${p ? p.name : ''} سدّد عمولة ${mLabel(d.k)} (${money(+d.v)})؟`)) return;
+    run('settleComm', { providerId: d.id, month: d.k, amount: +d.v || 0, undo }, undo ? 'تم التراجع' : 'تم تسجيل السداد');
+  },
   cleanX() { state.clean = null; render() },
   cleanAll(d) { const q = state.clean; if (!q) return; q.sel = d.k === '1' ? new Set(cleanMatches(q).map(o => o.id)) : new Set(); render() },
   cleanGo() {
@@ -2509,7 +2564,7 @@ const FORMS = {
   },
   settings(f) {
     const fd = new FormData(f), ds = fd.get('districts').split(/\n|،|,/).map(x => x.trim()).filter(Boolean);
-    run('saveSettings', { trial: fd.get('trial') === 'on', trialEnds: fd.get('trialEnds'), platformRate: fd.get('platformRate'), brokerPlatformRate: fd.get('brokerPlatformRate'), brokerRate: fd.get('brokerRate'), districts: ds }, 'حُفظت الإعدادات');
+    run('saveSettings', { trial: fd.get('trial') === 'on', trialEnds: fd.get('trialEnds'), platformRate: fd.get('platformRate'), brokerPlatformRate: fd.get('brokerPlatformRate'), brokerRate: fd.get('brokerRate'), dueDay: fd.get('dueDay'), districts: ds }, 'حُفظت الإعدادات');
   }
 };
 document.addEventListener('submit', e => { const f = e.target.closest('form[data-form]'); if (!f) return; e.preventDefault(); FORMS[f.dataset.form]?.(f) });
