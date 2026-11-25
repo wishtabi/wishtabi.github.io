@@ -1249,7 +1249,7 @@ const TABS = {
   provider: [{ k: 'p_orders', l: 'الطلبات', i: 'receipt' }, { k: 'p_menu', l: 'القائمة', i: 'menu', menuOnly: true }, { k: 'p_income', l: 'الدخل', i: 'chart' }, { k: 'p_shop', l: 'المحل', i: 'store' }],
   courier: [{ k: 'c_tasks', l: 'المهام المتاحة', i: 'truck' }, { k: 'c_mine', l: 'مهامي', i: 'receipt' }, { k: 'c_wallet', l: 'المحفظة', i: 'wallet' }],
   broker: [{ k: 'b_open', l: 'تنتظر مقدم', i: 'link' }, { k: 'b_mine', l: 'طلباتي', i: 'receipt' }, { k: 'b_wallet', l: 'المحفظة', i: 'wallet' }],
-  admin: [{ k: 'a_overview', l: 'نظرة عامة', i: 'chart' }, { k: 'a_users', l: 'المستخدمون', i: 'users' }, { k: 'a_orders', l: 'الطلبات', i: 'receipt' }, { k: 'a_settings', l: 'الإعدادات', i: 'sliders' }]
+  admin: [ { k: 'a_users', l: 'المستخدمون', i: 'users' }, { k: 'a_orders', l: 'الطلبات', i: 'receipt' },{ k: 'a_overview', l: 'نظرة عامة', i: 'chart' }, { k: 'a_settings', l: 'الإعدادات', i: 'sliders' }]
 };
 const STAFF_TABS = [{ k: 'p_orders', l: 'الطلبات', i: 'receipt' }, { k: 'p_menu', l: 'القائمة', i: 'menu', menuOnly: true }, { k: 'p_mine', l: 'إنجازي', i: 'chart' }];
 const tabsFor = u => (u.staff && !u.staff.manager ? STAFF_TABS : TABS[u.role] || []).filter(t => !t.menuOnly || catsOf(u).some(c => CAT(c).hasMenu));
