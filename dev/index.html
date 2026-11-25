@@ -377,7 +377,16 @@ details.more[open] summary{margin-bottom:12px}
 .auth-hero{background:var(--navy);color:var(--on-navy);padding:44px 20px 64px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
 .auth-hero .logo{font-size:40px} .auth-hero .logo svg{width:42px;height:42px}
 .auth-hero p{opacity:.8}
-.auth-hero{position:relative}
+.auth-hero{position:relative;padding:22px 20px 50px;gap:4px}
+.auth-hero .logo{font-size:34px} .auth-hero .logo svg{width:36px;height:36px}
+.hero-ver{position:absolute;top:20px;right:14px;margin:0}
+.hero-inst{align-self:center;margin-top:8px;background:rgba(255,255,255,.12)!important;color:#fff!important;border:1px solid rgba(255,255,255,.25)!important}
+.auth .auth-body{margin-top:-34px}
+.auth .card{padding-top:16px;padding-bottom:16px}
+.auth form.stack{gap:10px}
+.auth-alt{border-top:1px solid var(--line,#e5e7eb);margin-top:12px;padding-top:12px;display:flex;flex-direction:column;gap:8px;text-align:center}
+.auth-alt span{font-size:14px}
+@media (min-height:760px){.auth-hero{padding:40px 20px 60px;gap:8px}.auth-hero .logo{font-size:40px}.auth-hero .logo svg{width:42px;height:42px}}
 .auth-body{position:relative;z-index:1}
 .auth[dir=ltr] .logo{direction:rtl}
 .langsw{position:absolute;top:14px;left:14px;display:flex;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:999px;padding:3px;gap:2px;direction:ltr}
@@ -442,7 +451,7 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '3.10';
+const APP_VERSION = '3.11';
 const NEED_SERVER = '3.4'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
 const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
 /* بيئتان: التشغيل على الرابط الأساسي، والتطوير على /dev/ بنفس الملف */
@@ -1442,14 +1451,14 @@ function authView() {
   const districts = state.config?.districts || ['السعادة'], r = state.reg, en = EN();
   const wrap = en ? 'class="auth" dir="ltr" lang="en"' : 'class="auth"';
   const sw = `<div class="langsw" role="group" aria-label="اللغة · Language"><button type="button" class="${en ? '' : 'on'}" data-act="uiLang" data-k="ar" aria-pressed="${!en}" title="العربية">ع</button><button type="button" class="${en ? 'on' : ''}" data-act="uiLang" data-k="en" aria-pressed="${en}" title="English">E</button></div>`;
-  const hero = `<div class="auth-hero">${sw}${LOGO}${en ? '<b class="brand-en">Wish Tabi</b>' : ''}<p>${tx('كل خدمات حيّك في مكان واحد', 'All your neighborhood services in one place')}</p><span class="ver" style="align-self:center;margin:6px 0 0">v${APP_VERSION}</span>${isStandalone() || IS_DEV ? '' : `<button class="btn ghost sm" data-act="install" style="align-self:center;margin-top:12px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25)"><img src="icon-192.png" alt="" width="18" height="18" style="border-radius:4px;vertical-align:middle"> ${tx('ثبّت التطبيق على جوالك', 'Install the app on your phone')}</button>`}</div>`;
+  const hero = `<div class="auth-hero">${sw}${LOGO}${en ? '<b class="brand-en">Wish Tabi</b>' : ''}<p>${tx('كل خدمات حيّك في مكان واحد', 'All your neighborhood services in one place')}</p><span class="ver hero-ver">v${APP_VERSION}</span>${isStandalone() || IS_DEV ? '' : `<button class="btn ghost sm hero-inst" data-act="install"><img src="icon-192.png" alt="" width="18" height="18" style="border-radius:4px;vertical-align:middle"> ${tx('ثبّت التطبيق على جوالك', 'Install the app on your phone')}</button>`}</div>`;
   if (state.auth === 'login') return `<div ${wrap}>${hero}<div class="auth-body stack"><section class="card"><h2>${tx('تسجيل الدخول', 'Sign in')}</h2>
     <form data-form="login" class="stack">
       <label class="fld" for="l-phone"><span>${tx('رقم الجوال', 'Mobile number')}</span><input id="l-phone" name="phone" type="tel" inputmode="numeric" dir="ltr" placeholder="05xxxxxxxx" autocomplete="tel" required></label>
       <label class="fld" for="l-pin"><span>${tx('الرمز السري', 'PIN')}</span><input id="l-pin" name="pin" type="password" inputmode="numeric" maxlength="4" dir="ltr" placeholder="••••" autocomplete="current-password" required></label>
       <button class="btn primary block">${tx('دخول', 'Sign in')}</button></form>
-    <p class="muted sm center-t">${tx('نسيت الرمز؟ تواصل مع إدارة المنصة لإعادة تعيينه.', 'Forgot your PIN? Contact the platform admin to reset it.')}</p></section>
-    <section class="card center-t"><p>${tx('ما عندك حساب؟', "Don't have an account?")}</p><button class="btn ghost block" data-act="authMode" data-k="register">${tx('أنشئ حساباً جديداً', 'Create a new account')}</button></section></div></div>`;
+    <p class="muted xs center-t" style="margin:0">${tx('نسيت الرمز؟ تواصل مع إدارة المنصة لإعادة تعيينه.', 'Forgot your PIN? Contact the platform admin to reset it.')}</p>
+    <div class="auth-alt"><span>${tx('ما عندك حساب؟', "Don't have an account?")}</span><button class="btn ghost block" data-act="authMode" data-k="register">${tx('أنشئ حساباً جديداً', 'Create a new account')}</button></div></section></div></div>`;
   const roleSeg = `<div class="seg">${[['customer', 'أطلب خدمة', 'Customer'], ['provider', 'أقدم خدمة', 'Provider'], ['courier', 'مندوب توصيل', 'Courier']].map(([k, l, le]) => `<button type="button" class="${r.role === k ? 'on' : ''}" data-act="regRole" data-k="${k}">${en ? le : l}</button>`).join('')}</div>`;
   const f = (id, bind, label, attrs = '') => `<label class="fld" for="${id}"><span>${label}</span><input id="${id}" data-bind="reg.${bind}" value="${esc(r[bind])}" ${attrs}></label>`;
   const refShop = state.guest && state.guest.shop;
