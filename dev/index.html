@@ -468,7 +468,7 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '3.12';
+const APP_VERSION = '3.13';
 const NEED_SERVER = '3.5'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
 const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
 /* بيئتان: التشغيل على الرابط الأساسي، والتطوير على /dev/ بنفس الملف */
@@ -1486,11 +1486,11 @@ function authView() {
       ${f('r-phone', 'phone', tx('رقم الجوال', 'Mobile number'), 'type="tel" inputmode="numeric" dir="ltr" placeholder="05xxxxxxxx" autocomplete="tel" required')}
       <div class="row2">${f('r-pin', 'pin', tx('رمز سري (4 أرقام)', 'PIN (4 digits)'), 'type="password" inputmode="numeric" maxlength="4" dir="ltr" autocomplete="new-password" required')}
       ${f('r-pin2', 'pin2', tx('أعد كتابة الرمز', 'Confirm PIN'), 'type="password" inputmode="numeric" maxlength="4" dir="ltr" autocomplete="new-password" required')}</div>
-      ${r.role === 'customer' ? `<label class="fld" for="r-district"><span>${tx('الحي', 'District')}</span><select id="r-district" data-bind="reg.district">${distOptions(r.district, state.config)}</select></label>
+      ${r.role === 'customer' ? `${cityDistFields(r, 'reg', 'r', state.config, [tx('المدينة', 'City'), tx('الحي', 'District')])}
         ${f('r-details', 'details', tx('العنوان التفصيلي', 'Address details'), `placeholder="${tx('الشارع، رقم البيت أو العمارة', 'Street, house or building number')}"`)}` : ''}
       ${r.role === 'provider' ? catPicker('reg', r.cats) + `
         ${f('r-hours', 'hours', tx('أوقات العمل', 'Working hours'), `placeholder="${tx('مثال: 7 ص – 11 م', 'e.g. 7 AM – 11 PM')}"`)}
-        <div class="field-label">${tx('الأحياء اللي تخدمها', 'Districts you serve')}</div>${distChecks('regDistricts', 'rd', r.districts, state.config)}` : ''}
+        <div class="field-label">${tx('الأحياء اللي تخدمها', 'Districts you serve')}</div>${cityChecks(r, 'reg', 'regDistricts', 'rd', r.districts, state.config, tx('المدينة', 'City'))}` : ''}
       ${r.role === 'courier' ? f('r-vehicle', 'vehicle', tx('السيارة', 'Vehicle'), `placeholder="${tx('مثال: هايلكس 2019', 'e.g. Hilux 2019')}"`) : ''}
       ${r.role !== 'customer' || en || r.lang !== 'ar' ? `<label class="fld" for="r-lang"><span>${langLbl}</span>${langSelect('r-lang', r.lang, 'data-bind="reg.lang"')}</label>` : ''}
       ${r.role !== 'customer' ? `<div class="note info">${icon('shield', 'sm')} ${tx('حسابك يتفعّل بعد اعتماد إدارة المنصة.', 'Your account is activated after the platform admin approves it.')}</div>` : ''}
@@ -2058,6 +2058,26 @@ function distChecks(name, pre, selected, src) {
   const box = ds => `<div class="checks">${ds.map(x => { const id = pre + (i++); return `<label for="${id}"><input type="checkbox" id="${id}" name="${name}" value="${esc(x.k)}" ${selected.includes(x.k) ? 'checked' : ''}>${esc(x.n)}</label>` }).join('')}</div>`;
   return cs.length > 1 ? cs.map(c => `<div class="city-h">${icon('pin', 'sm')} ${esc(c.name)}</div>${box(c.list)}`).join('') : box(cs.flatMap(c => c.list));
 }
+/* المدينة أولاً ثم أحياؤها: obj = كائن الحالة (state.reg / state.addrForm)، path = اسمه في data-bind */
+function cityOfDist(k, src) { const e = distEntries(citiesOf(src)).filter(c => c.list.length); return (e.find(c => c.list.some(x => x.k === k)) || e[0] || {}).name }
+function cityDistFields(obj, path, idp, src, labels) {
+  const e = distEntries(citiesOf(src)).filter(c => c.list.length);
+  if (!obj.city || !e.some(c => c.name === obj.city)) obj.city = cityOfDist(obj.district, src);
+  const c = e.find(x => x.name === obj.city) || e[0] || { list: [] };
+  if (!c.list.some(x => x.k === obj.district)) obj.district = c.list[0] ? c.list[0].k : '';
+  const city = e.length > 1 ? `<label class="fld" for="${idp}-city"><span>${labels[0]}</span><select id="${idp}-city" data-bind="${path}.city" data-rerender="1">${e.map(x => `<option value="${esc(x.name)}" ${x.name === obj.city ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>` : '';
+  return city + `<label class="fld" for="${idp}-district"><span>${labels[1]}</span><select id="${idp}-district" data-bind="${path}.district">${c.list.map(x => `<option value="${esc(x.k)}" ${x.k === obj.district ? 'selected' : ''}>${esc(x.n)}</option>`).join('')}</select></label>`;
+}
+/* المحل: يختار المدينة ثم يعلّم أحياءها (اختياراته في المدن الثانية تبقى) */
+function cityChecks(obj, path, name, idp, selected, src, label) {
+  const e = distEntries(citiesOf(src)).filter(c => c.list.length);
+  if (!obj.pcity || !e.some(c => c.name === obj.pcity)) obj.pcity = (selected[0] && cityOfDist(selected[0], src)) || (e[0] || {}).name;
+  const c = e.find(x => x.name === obj.pcity) || e[0] || { list: [] };
+  const other = e.filter(x => x !== c).map(x => [x.name, x.list.filter(y => selected.includes(y.k)).length]).filter(x => x[1]);
+  return (e.length > 1 ? `<label class="fld" for="${idp}-city"><span>${label}</span><select id="${idp}-city" data-bind="${path}.pcity" data-rerender="1">${e.map(x => `<option value="${esc(x.name)}" ${x.name === obj.pcity ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>` : '')
+    + `<div class="checks">${c.list.map((x, i) => `<label for="${idp}${i}"><input type="checkbox" id="${idp}${i}" name="${name}" value="${esc(x.k)}" ${selected.includes(x.k) ? 'checked' : ''}>${esc(x.n)}</label>`).join('')}</div>`
+    + (other.length ? `<p class="muted xs" style="margin:0">${tx('مختار أيضاً:', 'Also selected:')} ${other.map(([n, k]) => `${esc(n)} (${k})`).join('، ')}</p>` : '');
+}
 const cityUse = k => (db.users || []).filter(x => (x.role === 'provider' && (x.districts || []).includes(k)) || (x.role === 'customer' && x.district === k)).length;
 VIEWS.a_cities = u => {
   const cs = distEntries(citiesOf()), sel = cs.find(c => c.name === state.city) || cs[0], ed = state.cityEd || {};
@@ -2235,8 +2255,8 @@ function sheetHtml() {
       <div class="chips">${['البيت', 'العمل', 'الاستراحة', 'بيت الأهل'].concat(['البيت', 'العمل', 'الاستراحة', 'بيت الأهل'].includes(f.label) || !f.label ? [] : [f.label]).map(l => `<button type="button" class="chip ${f.label === l ? 'on' : ''}" data-act="addrLabel" data-k="${esc(l)}">${esc(l)}</button>`).join('')}</div>
       ${mapPicker()}
       <form data-form="addr" class="stack">
-        <div class="row2"><label class="fld" for="ad-district"><span>الحي</span><select id="ad-district" data-bind="addrForm.district">${distOptions(f.district)}</select></label>
-        <label class="fld" for="ad-nat"><span>العنوان الوطني المختصر (اختياري)</span><input id="ad-nat" data-bind="addrForm.nat" value="${esc(f.nat)}" dir="ltr" maxlength="8" placeholder="RRRD2929" autocapitalize="characters"></label></div>
+        <div class="row2">${cityDistFields(f, 'addrForm', 'ad', null, ['المدينة', 'الحي'])}</div>
+        <label class="fld" for="ad-nat"><span>العنوان الوطني المختصر (اختياري)</span><input id="ad-nat" data-bind="addrForm.nat" value="${esc(f.nat)}" dir="ltr" maxlength="8" placeholder="RRRD2929" autocapitalize="characters"></label>
         <label class="fld" for="ad-details"><span>وصف يساعد الواصل</span><input id="ad-details" data-bind="addrForm.details" value="${esc(f.details)}" placeholder="مثال: فيلا 14، الباب الأخضر، جنب المسجد"></label>
         <button class="btn primary block">حفظ العنوان</button>
         ${s.id && myAddrs().length > 1 ? `<button type="button" class="btn danger block" data-act="delAddr">${icon('trash', 'sm')} حذف العنوان</button>` : ''}
