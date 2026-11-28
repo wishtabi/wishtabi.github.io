@@ -468,7 +468,7 @@ details.orig span{font-size:13px;color:var(--muted)}
    ضع رابط تطبيق الويب في API_URL.
    ============================================================ */
 /* رقم الإصدار: يُرفع مع كل تحديث، ويظهر في زاوية التطبيق */
-const APP_VERSION = '3.13';
+const APP_VERSION = '3.14';
 const NEED_SERVER = '3.5'; /* أقل إصدار للخادم تحتاجه هذه الواجهة */
 const verNum = v => String(v || '0').split('.').reduce((a, x, i) => a + (+x || 0) / Math.pow(1000, i), 0);
 /* بيئتان: التشغيل على الرابط الأساسي، والتطوير على /dev/ بنفس الملف */
@@ -2065,7 +2065,7 @@ function cityDistFields(obj, path, idp, src, labels) {
   if (!obj.city || !e.some(c => c.name === obj.city)) obj.city = cityOfDist(obj.district, src);
   const c = e.find(x => x.name === obj.city) || e[0] || { list: [] };
   if (!c.list.some(x => x.k === obj.district)) obj.district = c.list[0] ? c.list[0].k : '';
-  const city = e.length > 1 ? `<label class="fld" for="${idp}-city"><span>${labels[0]}</span><select id="${idp}-city" data-bind="${path}.city" data-rerender="1">${e.map(x => `<option value="${esc(x.name)}" ${x.name === obj.city ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>` : '';
+  const city = e.length ? `<label class="fld" for="${idp}-city"><span>${labels[0]}</span><select id="${idp}-city" data-bind="${path}.city" data-rerender="1">${e.map(x => `<option value="${esc(x.name)}" ${x.name === obj.city ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>` : '';
   return city + `<label class="fld" for="${idp}-district"><span>${labels[1]}</span><select id="${idp}-district" data-bind="${path}.district">${c.list.map(x => `<option value="${esc(x.k)}" ${x.k === obj.district ? 'selected' : ''}>${esc(x.n)}</option>`).join('')}</select></label>`;
 }
 /* المحل: يختار المدينة ثم يعلّم أحياءها (اختياراته في المدن الثانية تبقى) */
@@ -2074,7 +2074,7 @@ function cityChecks(obj, path, name, idp, selected, src, label) {
   if (!obj.pcity || !e.some(c => c.name === obj.pcity)) obj.pcity = (selected[0] && cityOfDist(selected[0], src)) || (e[0] || {}).name;
   const c = e.find(x => x.name === obj.pcity) || e[0] || { list: [] };
   const other = e.filter(x => x !== c).map(x => [x.name, x.list.filter(y => selected.includes(y.k)).length]).filter(x => x[1]);
-  return (e.length > 1 ? `<label class="fld" for="${idp}-city"><span>${label}</span><select id="${idp}-city" data-bind="${path}.pcity" data-rerender="1">${e.map(x => `<option value="${esc(x.name)}" ${x.name === obj.pcity ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>` : '')
+  return (e.length ? `<label class="fld" for="${idp}-city"><span>${label}</span><select id="${idp}-city" data-bind="${path}.pcity" data-rerender="1">${e.map(x => `<option value="${esc(x.name)}" ${x.name === obj.pcity ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>` : '')
     + `<div class="checks">${c.list.map((x, i) => `<label for="${idp}${i}"><input type="checkbox" id="${idp}${i}" name="${name}" value="${esc(x.k)}" ${selected.includes(x.k) ? 'checked' : ''}>${esc(x.n)}</label>`).join('')}</div>`
     + (other.length ? `<p class="muted xs" style="margin:0">${tx('مختار أيضاً:', 'Also selected:')} ${other.map(([n, k]) => `${esc(n)} (${k})`).join('، ')}</p>` : '');
 }
